@@ -64,8 +64,34 @@ async function openCategories(page: import('@playwright/test').Page) {
 }
 
 async function chooseSelect(page: import('@playwright/test').Page, label: string, option: string, scope: import('@playwright/test').Page | import('@playwright/test').Locator = page) {
-  await scope.getByLabel(label).click()
+  const trigger = scope.getByRole('combobox', { name: label, exact: true })
+  await trigger.click()
   await page.getByRole('option', { name: option, exact: true }).click()
+  await expect(trigger).toContainText(option)
+}
+
+async function expectedCardCycleLabels(page: import('@playwright/test').Page, closingDay: number, dueDay: number) {
+  return page.evaluate(({ closingDay, dueDay }) => {
+    const dateForDay = (year: number, month: number, day: number) => {
+      const lastDay = new Date(year, month + 1, 0, 12).getDate()
+      return new Date(year, month, Math.min(day, lastDay), 12)
+    }
+    const addMonths = (date: Date, months: number, day: number) => {
+      const target = new Date(date.getFullYear(), date.getMonth() + months, 1, 12)
+      return dateForDay(target.getFullYear(), target.getMonth(), day)
+    }
+    const today = new Date()
+    const civilToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12)
+    const closingThisMonth = dateForDay(civilToday.getFullYear(), civilToday.getMonth(), closingDay)
+    let closingDate = civilToday >= closingThisMonth ? closingThisMonth : addMonths(closingThisMonth, -1, closingDay)
+    let dueDate = addMonths(closingDate, dueDay <= closingDay ? 1 : 0, dueDay)
+    if (civilToday > dueDate) {
+      closingDate = addMonths(closingDate, 1, closingDay)
+      dueDate = addMonths(closingDate, dueDay <= closingDay ? 1 : 0, dueDay)
+    }
+    const format = (date: Date) => `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
+    return { closing: format(closingDate), due: format(dueDate) }
+  }, { closingDay, dueDay })
 }
 
 test('onboarding y gasto actualizan los indicadores reales', async ({ page }) => {
@@ -231,14 +257,15 @@ test('crea y edita una tarjeta sin inventar fechas', async ({ page }) => {
   await page.getByLabel('Día de cierre (opcional)').fill('20')
   await page.getByLabel('Día de vencimiento (opcional)').fill('5')
   await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  const cycle = await expectedCardCycleLabels(page, 20, 5)
   await expect(page.getByText('•••• 4242')).toBeVisible()
-  await expect(page.getByText('Cierre: 20/10')).toBeVisible()
-  await expect(page.getByText(/Vencimiento: 05\/11/)).toBeVisible()
+  await expect(page.getByText(`Cierre: ${cycle.closing}`)).toBeVisible()
+  await expect(page.getByText(`Vencimiento: ${cycle.due} · ARS`)).toBeVisible()
 
   await page.reload()
   await page.getByRole('button', { name: 'Cuentas y tarjetas' }).first().click()
   await expect(page.getByText('•••• 4242')).toBeVisible()
-  await expect(page.getByText('Cierre: 20/10')).toBeVisible()
+  await expect(page.getByText(`Cierre: ${cycle.closing}`)).toBeVisible()
 })
 
 test('edita cuentas y protege la moneda cuando ya tienen movimientos', async ({ page }) => {
@@ -285,7 +312,7 @@ test('nuevo movimiento usa defaults actuales y se limpia después de guardar', a
   await trigger.click()
   const expectedDate = await page.evaluate(() => new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date()))
   await expect(page.getByLabel('Fecha')).toHaveText(expectedDate)
-  await expect(page.getByLabel('Cuenta')).toContainText('Cuenta diaria · ARS')
+  await expect(page.getByRole('combobox', { name: 'Cuenta', exact: true })).toContainText('Cuenta diaria · ARS')
 
   await page.getByLabel('Importe').fill('1250')
   await page.getByLabel('Descripción o comercio').fill('Movimiento temporal')
@@ -296,7 +323,7 @@ test('nuevo movimiento usa defaults actuales y se limpia después de guardar', a
   await expect(page.getByLabel('Importe')).toHaveValue('')
   await expect(page.getByLabel('Descripción o comercio')).toHaveValue('')
   await expect(page.getByLabel('Fecha')).toHaveText(expectedDate)
-  await expect(page.getByLabel('Cuenta')).toContainText('Cuenta diaria · ARS')
+  await expect(page.getByRole('combobox', { name: 'Cuenta', exact: true })).toContainText('Cuenta diaria · ARS')
 })
 
 test('los selects de shadcn funcionan con teclado', async ({ page }) => {
@@ -362,11 +389,13 @@ test('las categorías permiten crear, reubicar y archivar ramas', async ({ page 
   const createForm = page.getByRole('button', { name: 'Guardar categoría' }).locator('..')
 
   const createCategory = async (name: string, parent?: string) => {
-    await createForm.getByLabel('Nombre').fill(name)
+    const nameField = createForm.getByLabel('Nombre')
+    await nameField.fill(name)
     if (parent) await chooseSelect(page, 'Categoría padre (opcional)', parent, createForm)
     const save = createForm.getByRole('button', { name: 'Guardar categoría', exact: true })
     await save.click()
-    await expect(page.getByText('Categoría guardada.', { exact: true }).last()).toBeVisible()
+    await expect(nameField).toHaveValue('')
+    await expect(save).toBeEnabled()
   }
 
   await createCategory('Hogar árbol')

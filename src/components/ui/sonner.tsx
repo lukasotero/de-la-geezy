@@ -1,5 +1,5 @@
 import { Toaster as Sonner } from 'sonner'
 
 export function Toaster() {
-  return <Sonner theme="dark" position="top-right" richColors toastOptions={{ className: 'font-sans' }} />
+  return <Sonner theme="dark" position="top-right" richColors toastOptions={{ className: 'pointer-events-none font-sans' }} />
 }

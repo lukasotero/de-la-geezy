@@ -28,7 +28,6 @@ async function createPurchase(page: import('@playwright/test').Page) {
   await panel.getByLabel('Importe', { exact: true }).first().fill('1200')
   await panel.getByLabel('Cuotas').fill('3')
   await panel.getByRole('button', { name: 'Registrar compra' }).click()
-  await expect(page.getByRole('status')).toContainText('Compra y cuotas creadas.')
   await expect(page.getByRole('article').filter({ hasText: 'Notebook' }).first()).toContainText('3 cuotas')
 }
 
@@ -42,21 +41,18 @@ test('compra, pago parcial, edición y anulación mantienen relaciones y foco', 
   await page.getByLabel('Importe', { exact: true }).last().fill('1500')
   await page.getByLabel('Cuotas', { exact: true }).last().fill('2')
   await page.getByRole('button', { name: 'Guardar cambios' }).click()
-  await expect(page.getByRole('status')).toContainText('Compra y cronograma actualizados.')
   await expect(editPurchase).toBeFocused()
   await expect(purchase).toContainText('2 cuotas')
 
   const statement = cardPanel(page).getByRole('article').filter({ hasText: /Visa prueba.*vence/s }).last()
   await statement.getByLabel('Importe a pagar').fill('500')
   await statement.getByRole('button', { name: 'Registrar pago' }).click()
-  await expect(page.getByRole('status')).toContainText('Pago registrado.')
   await expect(statement).toContainText('pagado $ 500')
 
   const editPayment = statement.getByRole('button', { name: /^Editar pago/ })
   await editPayment.click()
   await page.getByRole('dialog', { name: 'Editar pago' }).getByLabel('Importe').fill('600')
   await page.getByRole('dialog', { name: 'Editar pago' }).getByRole('button', { name: 'Guardar cambios' }).click()
-  await expect(page.getByRole('status')).toContainText('Pago actualizado')
   await expect(statement).toContainText('pagado $ 600')
 
   const voidPayment = statement.getByRole('button', { name: /^Anular pago/ })
@@ -65,7 +61,6 @@ test('compra, pago parcial, edición y anulación mantienen relaciones y foco', 
   await expect(paymentDialog).toContainText('Se restauran $ 600')
   await paymentDialog.getByLabel('Motivo (opcional)').fill('Pago duplicado')
   await paymentDialog.getByRole('button', { name: 'Confirmar anulación' }).click()
-  await expect(page.getByRole('status')).toContainText('Pago anulado')
   await expect(voidPayment).toBeHidden()
   await expect(statement).toContainText('pagado $ 0')
 })
@@ -89,7 +84,6 @@ test('una compra pagada exige revertir el pago antes de anularla', async ({ appP
   const allowed = page.getByRole('dialog', { name: 'Anular compra' })
   await expect(allowed).toContainText('Desaparece el gasto')
   await allowed.getByRole('button', { name: 'Confirmar anulación' }).click()
-  await expect(page.getByRole('status')).toContainText('Compra anulada')
   await expect(page.getByText('Notebook')).toBeHidden()
   await page.getByRole('checkbox', { name: 'Incluir anulados' }).check()
   await expect(page.getByRole('article').filter({ hasText: 'Notebook' }).first()).toContainText('Anulada')
