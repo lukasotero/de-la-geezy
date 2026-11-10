@@ -1,4 +1,5 @@
 import { expect, test as base, type Locator, type Page } from '@playwright/test'
+import { chooseSelect } from '../helpers/select'
 
 type AppFixtures = {
   appPage: Page
@@ -25,8 +26,7 @@ async function movement(page: Page, kind: 'Gasto' | 'Ingreso', amount: string, d
   await page.getByRole('tab', { name: kind, exact: true }).click()
   await page.getByLabel('Importe').fill(amount)
   if (kind === 'Gasto') {
-    await page.getByLabel('Categoría').click()
-    await page.getByRole('option', { name: 'Supermercado', exact: true }).click()
+    await chooseSelect(page, 'Categoría', 'Supermercado')
   }
   await page.getByLabel('Descripción o comercio').fill(description)
   await page.getByRole('button', { name: 'Guardar movimiento' }).click()

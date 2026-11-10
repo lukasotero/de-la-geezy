@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/app.fixture'
+import { chooseSelect } from './helpers/select'
 
 const screenshot = async (page: import('@playwright/test').Page, name: string) => {
   await page.evaluate(() => window.scrollTo(0, 0))
@@ -43,8 +44,7 @@ test.describe('referencias visuales por pantalla', () => {
     await page.getByRole('button', { name: 'Nueva tarjeta' }).click()
     await page.getByLabel('Nombre de la tarjeta').fill('Platinum')
     await page.getByLabel('Banco o emisor').fill('Banco Río')
-    await page.getByLabel('Marca').click()
-    await page.getByRole('option', { name: 'Visa', exact: true }).click()
+    await chooseSelect(page, 'Marca', 'Visa')
     await page.getByLabel('Últimos 4 números (opcional)').fill('4242')
     await page.getByLabel('Día de cierre (opcional)').fill('20')
     await page.getByLabel('Día de vencimiento (opcional)').fill('5')

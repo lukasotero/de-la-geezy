@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { chooseSelect } from './helpers/select'
 
 function mercadoPagoPdfFixture(): Buffer {
   const text = [
@@ -63,16 +64,6 @@ async function openCategories(page: import('@playwright/test').Page) {
   await expect(page.getByRole('heading', { name: 'Categorías', exact: true })).toBeVisible()
 }
 
-async function chooseSelect(page: import('@playwright/test').Page, label: string, option: string, scope: import('@playwright/test').Page | import('@playwright/test').Locator = page) {
-  const trigger = scope.getByRole('combobox', { name: label, exact: true })
-  await trigger.click()
-  const choice = page.getByRole('option', { name: option, exact: true })
-  await expect(choice).toBeVisible()
-  await choice.press('Enter')
-  await expect(page.getByRole('listbox')).toBeHidden()
-  await expect(trigger).toContainText(option)
-}
-
 async function expectedCardCycleLabels(page: import('@playwright/test').Page, closingDay: number, dueDay: number) {
   return page.evaluate(({ closingDay, dueDay }) => {
     const dateForDay = (year: number, month: number, day: number) => {
@@ -128,8 +119,7 @@ test('un gasto USD usa su cotización histórica en Inicio y Análisis', async (
 
   await page.getByRole('button', { name: /(?:Nuevo|Agregar) movimiento/i }).first().click()
   await page.getByLabel('Importe').fill('600')
-  await page.getByRole('combobox', { name: 'Cuenta' }).click()
-  await page.getByRole('option', { name: /Cuenta USD/ }).click()
+  await chooseSelect(page, 'Cuenta', /Cuenta USD/)
   await chooseSelect(page, 'Categoría', 'Vivienda')
   await page.getByLabel('Descripción o comercio').fill('Alquiler USD')
   await page.getByRole('button', { name: 'Guardar movimiento' }).click()
@@ -181,7 +171,9 @@ test('permite recategorizar desde el modal y persiste el cambio', async ({ page 
   await expenseCategory.click()
   await expect(page.getByRole('option', { name: 'Transporte', exact: true })).toBeVisible()
   await expect(page.getByRole('option', { name: 'Sueldo', exact: true })).toHaveCount(0)
-  await page.getByRole('option', { name: 'Transporte', exact: true }).click()
+  await page.getByRole('option', { name: 'Transporte', exact: true }).press('Enter')
+  await expect(page.getByRole('listbox')).toBeHidden()
+  await expect(expenseCategory).toContainText('Transporte')
   await editor.getByRole('button', { name: 'Guardar' }).click()
   await expect(editor).toBeHidden()
 
@@ -222,8 +214,7 @@ test('los íconos distinguen ingresos, egresos y transferencias', async ({ page 
   await page.getByRole('button', { name: /(?:Nuevo|Agregar) movimiento/i }).first().click()
   await page.getByRole('tab', { name: 'Transferencia', exact: true }).click()
   await page.getByPlaceholder('0').fill('100')
-  await page.getByLabel('Cuenta de destino').click()
-  await page.getByRole('option', { name: /Cuenta destino/ }).click()
+  await chooseSelect(page, 'Cuenta de destino', /Cuenta destino/)
   await page.getByLabel('Descripción o comercio').fill('Transferencia visual')
   await page.getByRole('button', { name: 'Guardar movimiento' }).click()
   await page.getByRole('button', { name: 'Movimientos' }).first().click()
@@ -422,10 +413,13 @@ test('las categorías permiten crear, reubicar y archivar ramas', async ({ page 
   await childRow.getByRole('button', { name: 'Editar categoría Servicios árbol' }).click()
   const editor = page.locator('aside').filter({ has: page.getByRole('heading', { name: 'Editar categoría' }) })
   await expect(editor.getByLabel('Tipo')).toHaveCount(0)
-  await editor.getByLabel('Categoría padre (opcional)').click()
+  const parentCategory = editor.getByLabel('Categoría padre (opcional)')
+  await parentCategory.click()
   await expect(page.getByRole('option', { name: 'Servicios árbol', exact: true })).toHaveCount(0)
   await expect(page.getByRole('option', { name: /Internet árbol/ })).toHaveCount(0)
-  await page.getByRole('option', { name: 'Sin padre', exact: true }).click()
+  await page.getByRole('option', { name: 'Sin padre', exact: true }).press('Enter')
+  await expect(page.getByRole('listbox')).toBeHidden()
+  await expect(parentCategory).toContainText('Sin padre')
   await editor.getByRole('button', { name: 'Guardar cambios' }).click()
   await expect(page.getByText('Categoría actualizada y reubicada.', { exact: true }).last()).toBeVisible()
   await expect(childRow).toHaveAttribute('data-depth', '0')
