@@ -66,7 +66,10 @@ async function openCategories(page: import('@playwright/test').Page) {
 async function chooseSelect(page: import('@playwright/test').Page, label: string, option: string, scope: import('@playwright/test').Page | import('@playwright/test').Locator = page) {
   const trigger = scope.getByRole('combobox', { name: label, exact: true })
   await trigger.click()
-  await page.getByRole('option', { name: option, exact: true }).click()
+  const choice = page.getByRole('option', { name: option, exact: true })
+  await expect(choice).toBeVisible()
+  await choice.press('Enter')
+  await expect(page.getByRole('listbox')).toBeHidden()
   await expect(trigger).toContainText(option)
 }
 
@@ -147,6 +150,7 @@ test('el movimiento persiste después de recargar', async ({ page }) => {
   await page.getByPlaceholder('0').fill('50000')
   await page.getByLabel('Descripción o comercio').fill('Cobro de prueba')
   await page.getByRole('button', { name: 'Guardar movimiento' }).click()
+  await expect(page.getByRole('heading', { name: 'Nuevo movimiento' })).toBeHidden()
   await page.reload()
 
   const movementNav = page.getByRole('button', { name: 'Movimientos' })
