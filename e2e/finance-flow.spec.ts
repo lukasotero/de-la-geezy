@@ -491,7 +491,7 @@ test('el filtro de movimientos permite combinar criterios y limpiarlos', async (
   await page.getByRole('button', { name: 'Guardar movimiento' }).click()
   await page.getByRole('button', { name: 'Movimientos' }).first().click()
 
-  await page.getByRole('button', { name: 'Filtrar', exact: true }).click()
+  await page.getByRole('button', { name: /^Filtrar(?:,|$)/ }).click()
   await expect(page.getByRole('button', { name: /Fecha desde/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /Fecha hasta/ })).toBeVisible()
   await chooseSelect(page, 'Tipo de movimiento', 'Ingresos')
@@ -507,7 +507,7 @@ test('el filtro de movimientos permite combinar criterios y limpiarlos', async (
   await expect(search).toHaveValue('')
   await expect(search).toBeFocused()
 
-  await page.getByRole('button', { name: 'Filtrar', exact: true }).click()
+  await page.getByRole('button', { name: /^Filtrar(?:,|$)/ }).click()
   await expect(page.locator('#movement-filters')).toHaveCount(0)
 
   const row = page.getByRole('button', { name: 'Editar movimiento Compra filtrable' })

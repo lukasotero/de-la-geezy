@@ -2,6 +2,7 @@ import { test, expect } from './fixtures/app.fixture'
 import { chooseSelect } from './helpers/select'
 
 const screenshot = async (page: import('@playwright/test').Page, name: string) => {
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0, { timeout: 10_000 })
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.mouse.move(0, 0)
   await expect(page).toHaveScreenshot(name, { animations: 'disabled' })

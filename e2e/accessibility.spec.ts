@@ -42,7 +42,7 @@ test('los diálogos de corrección de tarjeta son accesibles y restauran el foco
 test('las acciones compactas usan tooltips accesibles y no title nativo', async ({ appPage: page, completeOnboarding }) => {
   await completeOnboarding()
   await page.getByRole('button', { name: 'Movimientos', exact: true }).first().click()
-  const filter = page.getByRole('button', { name: 'Filtrar', exact: true })
+  const filter = page.getByRole('button', { name: /^Filtrar(?:,|$)/ })
   await filter.focus()
   await expect(page.getByRole('tooltip', { name: 'Filtrar' })).toBeVisible()
   await expect(page.locator('[title]')).toHaveCount(0)
@@ -54,9 +54,9 @@ test('respeta la preferencia de movimiento reducido', async ({ appPage: page, co
   await page.getByRole('button', { name: 'Movimientos', exact: true }).first().click()
 
   await expect.poll(() => page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true)
-  await page.getByRole('button', { name: 'Filtrar', exact: true }).click()
+  await page.getByRole('button', { name: /^Filtrar(?:,|$)/ }).click()
   await expect(page.locator('#movement-filters')).toBeVisible()
-  await page.getByRole('button', { name: 'Filtrar', exact: true }).click()
+  await page.getByRole('button', { name: /^Filtrar(?:,|$)/ }).click()
   await expect(page.locator('#movement-filters')).toHaveCount(0)
 
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag22aa']).analyze()

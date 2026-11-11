@@ -269,7 +269,7 @@ function MovementCollection({ transactions, accountNames, query, activeFilters, 
   return <m.div ref={containerRef} layout className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} transition={{ layout: motionTransition.layout }}>{transactions.map(transaction => <m.div layout="position" key={transaction.id} transition={{ layout: motionTransition.layout }}><MovementRow transaction={transaction} accountName={accountNames.get(transaction.accountId ?? '') ?? 'Sin cuenta'} onEdit={onEdit} onDelete={onDelete} /></m.div>)}</m.div>
 }
 
-function Movements({ transactions, categories, accounts, onAdd, onImport, onDelete, onUpdate }: { transactions: Transaction[]; categories: Category[]; accounts: Account[]; onAdd: () => void; onImport: () => void; onDelete: (id: string) => Promise<void>; onUpdate: () => Promise<void> }) {
+function Movements({ transactions, categories, accounts, importedPeriod, onAdd, onImport, onDelete, onUpdate }: { transactions: Transaction[]; categories: Category[]; accounts: Account[]; importedPeriod: { start: string; end: string; revision: number } | null; onAdd: () => void; onImport: () => void; onDelete: (id: string) => Promise<void>; onUpdate: () => Promise<void> }) {
   const [query, setQuery] = useState('')
   const deferredQuery = useDeferredValue(query)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -294,6 +294,11 @@ function Movements({ transactions, categories, accounts, onAdd, onImport, onDele
   const filterSetters = { query: setQuery, type: setTypeFilter, status: setStatusFilter, account: setAccountFilter, category: setCategoryFilter, dateFrom: setDateFromFilter, dateTo: setDateToFilter }
   const setFilter = (key: keyof MovementFilterState, value: string) => { filterSetters[key](value); setPage(1) }
   const resetFilters = () => { setTypeFilter('all'); setStatusFilter('all'); setAccountFilter('all'); setCategoryFilter('all'); setDateFromFilter(''); setDateToFilter(''); setPage(1) }
+  useEffect(() => {
+    if (!importedPeriod) return
+    setQuery(''); setTypeFilter('all'); setStatusFilter('all'); setAccountFilter('all'); setCategoryFilter('all')
+    setDateFromFilter(importedPeriod.start); setDateToFilter(importedPeriod.end); setPage(1)
+  }, [importedPeriod])
   useLayoutEffect(() => {
     const oldSize = previousPageSize.current
     if (oldSize === pageSize) return
@@ -340,7 +345,7 @@ function Analysis({ transactions, categories, accounts, cards, month, onMonth }:
 
 export default function App() {
   const { accounts, categories, transactions, cards, rate, ready, refresh, refreshRate } = useFinanceData()
-  const [view, setView] = useState<View>('dashboard'); const [adding, setAdding] = useState(false); const [importing, setImporting] = useState(false); const [month, setMonth] = useState(() => startOfMonth(new Date()))
+  const [view, setView] = useState<View>('dashboard'); const [adding, setAdding] = useState(false); const [importing, setImporting] = useState(false); const [importedPeriod, setImportedPeriod] = useState<{ start: string; end: string; revision: number } | null>(null); const [month, setMonth] = useState(() => startOfMonth(new Date()))
   const addTrigger = useRef<HTMLElement | null>(null)
   const openAdd = (trigger?: HTMLElement) => { addTrigger.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null); setAdding(true) }
   const closeAdd = () => setAdding(false)
@@ -348,12 +353,12 @@ export default function App() {
   if (!accounts.length) return <Onboarding onDone={refresh} />
   const content = (() => {
     if (view === 'dashboard') return <Dashboard accounts={accounts} transactions={transactions} categories={categories} rate={rate} month={month} onMonth={setMonth} onAdd={openAdd} onNavigate={setView} />
-    if (view === 'movements') return <Movements transactions={transactions} categories={categories} accounts={accounts} onAdd={openAdd} onImport={() => setImporting(true)} onDelete={async id => { try { await financeService.deleteMovement(id); await refresh(); toast.success('Movimiento eliminado.') } catch (error) { toast.error(error instanceof Error ? error.message : 'No pudimos eliminar el movimiento.') } }} onUpdate={refresh} />
+    if (view === 'movements') return <Movements transactions={transactions} categories={categories} accounts={accounts} importedPeriod={importedPeriod} onAdd={openAdd} onImport={() => setImporting(true)} onDelete={async id => { try { await financeService.deleteMovement(id); await refresh(); toast.success('Movimiento eliminado.') } catch (error) { toast.error(error instanceof Error ? error.message : 'No pudimos eliminar el movimiento.') } }} onUpdate={refresh} />
     if (view === 'accounts') return <Accounts accounts={accounts} cards={cards} transactions={transactions} rate={rate} onRefresh={refresh} />
     if (view === 'analysis') return <Analysis transactions={transactions} categories={categories} accounts={accounts} cards={cards} month={month} onMonth={setMonth} />
     if (view === 'categories') return <CategoriesPage categories={categories} onRefresh={refresh} />
     if (view === 'more') return <MoreMenuPage onNavigate={setView} />
     return <FinanceToolsPage accounts={accounts} categories={categories} cards={cards} rate={rate} onRateRefresh={refreshRate} onRefresh={refresh} />
   })()
-  return <AppShell view={view} onNavigate={setView} onAdd={openAdd}>{content}<QuickMovement open={adding} accounts={accounts} categories={categories} onClose={closeAdd} onClosed={() => addTrigger.current?.focus()} onSaved={refresh} />{importing && <MercadoPagoImportModal accounts={accounts} categories={categories} onClose={() => setImporting(false)} onImported={refresh} />}</AppShell>
+  return <AppShell view={view} onNavigate={setView} onAdd={openAdd}>{content}<QuickMovement open={adding} accounts={accounts} categories={categories} onClose={closeAdd} onClosed={() => addTrigger.current?.focus()} onSaved={refresh} />{importing && <MercadoPagoImportModal accounts={accounts} categories={categories} onClose={() => setImporting(false)} onImported={async period => { await refresh(); setImportedPeriod(current => ({ ...period, revision: (current?.revision ?? 0) + 1 })) }} />}</AppShell>
 }

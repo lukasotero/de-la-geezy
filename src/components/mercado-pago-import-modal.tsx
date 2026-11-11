@@ -27,7 +27,7 @@ type Props = {
   accounts: Account[]
   categories: Category[]
   onClose: () => void
-  onImported: () => Promise<void>
+  onImported: (period: { start: string; end: string }) => Promise<void>
 }
 
 const money = (minor: number, currency: Currency) => formatMoney(Math.abs(minor), currency)
@@ -102,7 +102,7 @@ export function MercadoPagoImportModal({ accounts, categories, onClose, onImport
           ? { create: true }
           : { create: false, accountId: accountsByCurrency[currency] }])) as Partial<Record<Currency, { create: boolean; accountId?: string }>>,
       })
-      await onImported()
+      await onImported(period)
       setResult({ imported: response.importedCount, duplicates: response.duplicateCount }); setStep('done')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No pudimos guardar los movimientos.')
