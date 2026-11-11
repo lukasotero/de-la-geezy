@@ -18,7 +18,6 @@ import { DatePicker, DatePickerField, FormSelect } from './components/form-contr
 import { ResponsiveModal } from './components/responsive-modal'
 import { Button } from './components/ui/button'
 import { Card } from './components/ui/card'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './components/ui/alert-dialog'
 import { Empty as EmptyRoot, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './components/ui/empty'
 import { Field, FieldError } from './components/ui/field'
 import { Input } from './components/ui/input'
@@ -34,6 +33,7 @@ import { DatabaseImportButton } from './components/database-backup-controls'
 import { MoreMenuPage } from './components/more-menu-page'
 import { AmountField, DateField } from './components/movement-fields'
 import { IconAction } from './components/icon-action'
+import { ConfirmationDialog } from './components/confirmation-dialog'
 import { analyticsAmountInArs, pendingUsdConversionCount } from './domain/analytics-currency'
 import { formatMoney } from './domain/money'
 import { todayLocal } from './domain/date'
@@ -235,10 +235,7 @@ function movementTone(type: Transaction['type']) {
 }
 
 function MovementActions({ transaction, onDelete }: Pick<MovementRowProps, 'transaction' | 'onDelete'>) {
-  const [deleting, setDeleting] = useState(false)
-  const [open, setOpen] = useState(false)
-  const remove = async (event: React.MouseEvent) => { event.preventDefault(); if (deleting) return; setDeleting(true); try { await onDelete(transaction.id); setOpen(false) } finally { setDeleting(false) } }
-  return <div className="flex gap-1" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}><AlertDialog open={open} onOpenChange={next => { if (!deleting) setOpen(next) }}><AlertDialogTrigger asChild><IconAction variant="ghost" size="icon-xs" className="size-11 tablet:size-6" icon={Trash2} label={`Eliminar movimiento ${transaction.description}`} /></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Eliminar este movimiento?</AlertDialogTitle><AlertDialogDescription>El registro se borrará y todos los saldos se recalcularán.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel><AlertDialogAction variant="destructive" disabled={deleting} aria-busy={deleting} onClick={remove}>{deleting ? 'Eliminando…' : <><Trash2 aria-hidden="true" />Eliminar</>}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div>
+  return <div className="flex gap-1" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}><ConfirmationDialog trigger={<IconAction variant="ghost" size="icon-xs" className="size-11 tablet:size-6" icon={Trash2} label={`Eliminar movimiento ${transaction.description}`} />} title="¿Eliminar este movimiento?" description="El registro se borrará y todos los saldos se recalcularán." confirmLabel="Eliminar" pendingLabel="Eliminando…" variant="destructive" onConfirm={() => onDelete(transaction.id)} /></div>
 }
 
 function MovementRow({ transaction, accountName, onEdit, onDelete }: MovementRowProps) {
@@ -280,7 +277,7 @@ function Movements({ transactions, categories, accounts, onAdd, onImport, onDele
   const [statusFilter, setStatusFilter] = useState('all')
   const [accountFilter, setAccountFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
-  const [dateFromFilter, setDateFromFilter] = useState('')
+  const [dateFromFilter, setDateFromFilter] = useState(() => format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [dateToFilter, setDateToFilter] = useState('')
   const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<Transaction | null>(null)
@@ -336,7 +333,7 @@ function Analysis({ transactions, categories, accounts, cards, month, onMonth }:
     <MonthSelector month={month} onMonth={date => { setSelectedCategory(null); onMonth(date) }} className="mb-4" />
     {pendingConversions ? <div role="status" className="mb-4 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-accent">{pendingConversions} {pendingConversions === 1 ? 'operación USD todavía no tiene' : 'operaciones USD todavía no tienen'} cotización histórica y no se incluye en los totales ARS.</div> : null}
     <div className="mb-4 grid gap-3 min-[430px]:grid-cols-2 desktop:grid-cols-4"><Card className="p-4"><span className="text-xs text-muted">Ingresos del mes</span><strong className="mt-2 block text-xl text-success">{money(current.income)}</strong></Card><Card className="p-4"><span className="text-xs text-muted">Gastos del mes</span><strong className="mt-2 block text-xl text-danger">{money(current.expense)}</strong></Card><Card className="p-4"><span className="text-xs text-muted">Resultado vs. mes anterior</span><strong className="mt-2 block text-xl">{money(current.result)}</strong><span className="text-xs text-muted">Anterior {money(previous.result)}</span></Card><Card className="p-4"><span className="text-xs text-muted">Tasa de ahorro</span><strong className="mt-2 block text-xl">{savingsRate}%</strong></Card></div>
-    {data.length ? <div className="grid items-start gap-3 tablet:grid-cols-[minmax(0,1.7fr)_minmax(280px,1fr)]"><Card className="p-5"><h2 className="mb-1 text-xl">Distribución por categoría</h2><p className="text-xs text-muted">Fecha de consumo · ARS con cotizaciones guardadas</p><Suspense fallback={<div className="h-[220px]" aria-hidden="true" />}><FinanceChart kind="pie" data={data} formatValue={money} totalLabel={money(total)} /></Suspense></Card><Card className="p-5"><h2 className="mb-3 text-xl">Categorías</h2>{data.map(item => <Button type="button" variant="ghost" className="flex h-auto w-full justify-between gap-3 border-b border-line py-3 text-sm" key={item.name} onClick={() => setSelectedCategory(item.name)}><span className="text-left">{item.name}<small className="block text-muted">{total ? ((item.value / total) * 100).toFixed(1) : 0}% · ver movimientos</small></span><strong>{money(item.value)}</strong></Button>)}</Card></div> : <Card className="p-5"><Empty title="Todavía no hay nada para analizar" copy="Los gráficos se construyen sólo con tus movimientos reales." /></Card>}
+    {data.length ? <Card className="p-5"><h2 className="mb-1 text-xl">Distribución por categoría</h2><p className="text-xs text-muted">Fecha de consumo · ARS con cotizaciones guardadas</p><div className="mt-3 grid items-center gap-x-6 gap-y-2 min-[700px]:grid-cols-[minmax(260px,1fr)_minmax(280px,0.9fr)]"><Suspense fallback={<div className="h-[220px]" aria-hidden="true" />}><FinanceChart kind="pie" data={data} formatValue={money} totalLabel={money(total)} /></Suspense><div aria-label="Categorías">{data.map(item => <Button type="button" variant="ghost" className="grid h-auto w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center justify-stretch gap-2 border-b border-line px-2 py-2.5 text-sm" key={item.name} onClick={() => setSelectedCategory(item.name)}><span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} aria-hidden="true" /><span className="min-w-0 text-left"><span className="block truncate">{item.name}</span><small className="block text-muted">{total ? ((item.value / total) * 100).toFixed(1) : 0}% · ver movimientos</small></span><strong className="shrink-0 tabular-nums">{money(item.value)}</strong></Button>)}</div></div></Card> : <Card className="p-5"><Empty title="Todavía no hay nada para analizar" copy="Los gráficos se construyen sólo con tus movimientos reales." /></Card>}
     {selectedCategory ? <Card className="mt-4 p-4"><div className="mb-3 flex items-center justify-between"><h2 className="text-lg">Movimientos de {selectedCategory}</h2><Button size="sm" variant="ghost" onClick={() => setSelectedCategory(null)}>Cerrar</Button></div><div className="grid gap-2">{consumption.filter(item => (categoriesById.get(item.categoryId ?? '')?.name ?? 'Otros') === selectedCategory).map(item => { const converted = analyticsAmountInArs(item); return <div key={item.id} className="flex justify-between gap-3 rounded-xl bg-raised p-3 text-sm"><span>{item.description}<small className="block text-muted">{item.date}</small></span><span className="text-right"><strong>{money(item.amountMinor, item.currency)}</strong>{item.currency === 'USD' && converted !== null ? <small className="block text-muted">{money(converted)} histórico</small> : null}</span></div> })}</div></Card> : null}
     <div className="mt-4 grid gap-3 tablet:grid-cols-3"><AnalyticsRanking title="Conceptos" items={concepts} /><AnalyticsRanking title="Cuentas" items={byAccount} /><AnalyticsRanking title="Tarjetas" items={byCard} /></div></>
 }

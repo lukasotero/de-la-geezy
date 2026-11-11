@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeftRight, CreditCard, FolderTree, Home, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, TrendingUp } from 'lucide-react'
+import { ArrowLeftRight, CreditCard, FolderTree, Home, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, ShieldCheck, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Brand } from '@/components/brand'
 import { IconAction } from '@/components/icon-action'
@@ -40,7 +40,13 @@ function DesktopSidebar({ view, collapsed, onToggle, onNavigate, onAdd }: { view
     <div className={`mb-6 flex items-center ${collapsed ? 'flex-col gap-3' : 'justify-between gap-2 px-2'}`}><Brand variant={collapsed ? 'compact' : 'full'} /><IconAction variant="ghost" icon={collapsed ? PanelLeftOpen : PanelLeftClose} label={collapsed ? 'Abrir barra lateral' : 'Cerrar barra lateral'} aria-expanded={!collapsed} onClick={onToggle} /></div>
     {collapsed ? <IconAction className="mb-6 size-[54px] self-center" icon={Plus} label="Nuevo movimiento" tooltipSide="right" onClick={event => onAdd(event.currentTarget)} /> : <Button type="button" className="mb-6 w-full" onClick={event => onAdd(event.currentTarget)}><Plus aria-hidden="true" />Nuevo movimiento</Button>}
     <nav className="flex flex-col gap-[5px]" aria-label="Navegación de escritorio">{nav.map(item => <DesktopNavItem key={item.id} item={item} selected={view === item.id} collapsed={collapsed} onNavigate={onNavigate} />)}</nav>
-    {collapsed ? null : <div className="mt-auto border-t border-line px-[10px] py-[14px] text-[11px] text-muted">Datos guardados localmente<br />en este dispositivo.</div>}
+    {collapsed ? null : <div className="mt-auto flex items-start gap-2.5 border-t border-line px-[10px] py-[14px] text-[11px] leading-relaxed text-muted">
+      <ShieldCheck aria-hidden="true" className="mt-0.5 shrink-0 text-accent" size={22} />
+      <div>
+        <p>Datos guardados localmente en este navegador y dispositivo.</p>
+        <p className="mt-1 text-[10px] opacity-70">Versión {__APP_VERSION__}</p>
+      </div>
+    </div>}
   </aside>
 }
 

@@ -426,12 +426,31 @@ test('las categorías permiten crear, reubicar y archivar ramas', async ({ page 
   await expect(rows.filter({ hasText: 'Internet árbol' })).toHaveAttribute('data-depth', '1')
 
   await childRow.getByRole('button', { name: 'Archivar categoría Servicios árbol' }).click()
+  const archiveDialog = page.getByRole('alertdialog')
+  await expect(archiveDialog.getByRole('heading', { name: '¿Archivar esta categoría?' })).toBeVisible()
+  await archiveDialog.getByRole('button', { name: 'Archivar', exact: true }).click()
   await expect(page.getByText('Categoría archivada.', { exact: true }).last()).toBeVisible()
   await expect(childRow).toBeHidden()
   await page.getByText('Categorías archivadas', { exact: true }).click()
   await expect(childRow).toBeVisible()
   await expect(childRow).toHaveAttribute('data-archived', 'true')
   await expect(childRow.getByText('Archivada', { exact: true })).toBeVisible()
+})
+
+test('archivar una cuenta requiere confirmación', async ({ page }) => {
+  await completeOnboarding(page)
+  await page.getByRole('button', { name: 'Cuentas y tarjetas' }).first().click()
+
+  await page.getByRole('button', { name: 'Archivar cuenta Cuenta diaria' }).click()
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog.getByRole('heading', { name: '¿Archivar esta cuenta?' })).toBeVisible()
+  await expect(dialog).toContainText('Su historial se conserva.')
+  await dialog.getByRole('button', { name: 'Cancelar' }).click()
+  await expect(page.getByText('Cuenta archivada.', { exact: true })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Archivar cuenta Cuenta diaria' }).click()
+  await dialog.getByRole('button', { name: 'Archivar', exact: true }).click()
+  await expect(page.getByText('Cuenta archivada.', { exact: true }).last()).toBeVisible()
 })
 
 test('eliminar un movimiento requiere confirmación accesible', async ({ page }) => {
@@ -449,6 +468,19 @@ test('eliminar un movimiento requiere confirmación accesible', async ({ page })
   await page.getByRole('button', { name: 'Eliminar' }).click()
   await page.getByRole('button', { name: 'Eliminar' }).last().click()
   await expect(movementRow).toBeHidden()
+})
+
+test('movimientos abre filtrado desde el primer día del mes actual', async ({ page }) => {
+  await completeOnboarding(page)
+  await page.getByRole('button', { name: 'Movimientos' }).first().click()
+  await page.getByRole('button', { name: 'Filtrar, hay filtros activos' }).click()
+
+  const firstDayLabel = await page.evaluate(() => {
+    const date = new Date()
+    return `01/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`
+  })
+  await expect(page.getByRole('button', { name: `Fecha desde: ${firstDayLabel}` })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Fecha hasta: Elegí una fecha' })).toBeVisible()
 })
 
 test('el filtro de movimientos permite combinar criterios y limpiarlos', async ({ page }) => {

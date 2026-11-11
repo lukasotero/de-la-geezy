@@ -1,5 +1,5 @@
 // react-doctor-disable-next-line prefer-dynamic-import -- App.tsx loads this chart-only module with React.lazy.
-import { Bar, BarChart, CartesianGrid, Cell, Label, Pie, PieChart, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from 'recharts'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 
 type ChartDatum = {
@@ -27,12 +27,13 @@ export default function FinanceChart({ data, formatValue, kind, totalLabel }: Fi
   />
 
   if (kind === 'bar') {
+    const chartHeight = Math.max(230, data.length * 30)
     return (
-      <ChartContainer config={config} className="h-[230px] w-full aspect-auto">
+      <ChartContainer config={config} className="w-full aspect-auto" style={{ height: chartHeight }}>
         <BarChart data={data} layout="vertical" margin={{ left: 0, right: 14 }}>
           <CartesianGrid stroke="rgba(245,247,242,.05)" horizontal={false} />
           <XAxis hide type="number" />
-          <YAxis type="category" dataKey="name" width={108} tick={{ fill: '#AAB3B1', fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis type="category" dataKey="name" width={108} interval={0} tick={{ fill: '#AAB3B1', fontSize: 11 }} axisLine={false} tickLine={false} />
           <ChartTooltip content={tooltip} isAnimationActive={false} animationDuration={0} />
           <Bar dataKey="value" radius={[0, 7, 7, 0]} isAnimationActive={false}>
             {data.map((item) => <Cell key={item.name} fill={item.color} />)}
@@ -42,24 +43,18 @@ export default function FinanceChart({ data, formatValue, kind, totalLabel }: Fi
     )
   }
 
-  return (
-    <ChartContainer config={config} className="h-[220px] w-full aspect-auto">
+  return <div className="relative h-[220px] w-full">
+    <ChartContainer config={config} className="h-full w-full aspect-auto">
       <PieChart>
         <Pie data={data} dataKey="value" innerRadius={62} outerRadius={94} paddingAngle={3} isAnimationActive={false}>
           {data.map((item) => <Cell key={item.name} fill={item.color} />)}
-          {totalLabel ? <Label
-            position="center"
-            content={({ viewBox }) => {
-              if (!viewBox || !('cx' in viewBox) || !('cy' in viewBox)) return null
-              return <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                <tspan x={viewBox.cx} dy="-0.55em" className="fill-muted text-[11px]">Total</tspan>
-                <tspan x={viewBox.cx} dy="1.5em" className="fill-text text-sm font-bold tabular-nums">{totalLabel}</tspan>
-              </text>
-            }}
-          /> : null}
         </Pie>
         <ChartTooltip content={tooltip} isAnimationActive={false} animationDuration={0} />
       </PieChart>
     </ChartContainer>
-  )
+    {totalLabel ? <div className="pointer-events-none absolute left-1/2 top-1/2 grid -translate-x-1/2 -translate-y-1/2 place-items-center text-center" aria-label={`Total ${totalLabel}`}>
+      <span className="text-[11px] text-muted">Total</span>
+      <strong className="max-w-[112px] text-sm font-bold leading-tight tabular-nums text-text">{totalLabel}</strong>
+    </div> : null}
+  </div>
 }
