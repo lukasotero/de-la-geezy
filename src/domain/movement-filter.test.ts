@@ -9,7 +9,7 @@ const movements: Transaction[] = [
   { id: '3', date: '2026-11-10', amountMinor: 3000, currency: 'ARS', type: 'expense', status: 'confirmed', accountId: 'bank', categoryId: 'food', description: 'Mercado', tags: [], createdAt: stamp, updatedAt: stamp },
 ]
 const categories = new Map([['food', 'Comida'], ['salary', 'Sueldo']])
-const defaults: MovementFilterState = { query: '', type: 'all', status: 'all', account: 'all', category: 'all', dateFrom: '', dateTo: '' }
+const defaults: MovementFilterState = { query: '', type: 'all', account: 'all', category: 'all', dateFrom: '', dateTo: '' }
 
 describe('movement filters', () => {
   it('combina texto, selecciones y fechas inclusivas', () => {

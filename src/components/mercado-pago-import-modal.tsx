@@ -8,6 +8,7 @@ import {
 import { extractPdfText } from '@/data/pdf-text'
 import { formatMoney } from '@/domain/money'
 import { ResponsiveModal } from '@/components/responsive-modal'
+import { categorySelectOptions } from '@/domain/category-tree'
 import { SelectField } from '@/components/form-field'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -46,7 +47,7 @@ export function MercadoPagoImportModal({ accounts, categories, onClose, onImport
   const [accountsByCurrency, setAccountsByCurrency] = useState<Partial<Record<Currency, string>>>({})
   const [result, setResult] = useState({ imported: 0, duplicates: 0 })
 
-  const expenseCategories = useMemo(() => categories.filter(category => category.kind === 'expense' && !category.archived), [categories])
+  const expenseCategoryOptions = useMemo(() => categorySelectOptions(categories.filter(category => category.kind === 'expense' && !category.archived)), [categories])
   const selectedRows = rows.filter(row => !row.duplicate && row.decision === 'expense')
   const selectedCurrencies = Array.from(new Set(selectedRows.map(row => row.currency)))
   const unresolved = rows.filter(row => !row.duplicate && row.classification === 'ambiguous-transfer' && row.decision === null).length
@@ -139,7 +140,7 @@ export function MercadoPagoImportModal({ accounts, categories, onClose, onImport
               <label className="flex min-h-8 items-center gap-2 text-xs"><input className="size-4 accent-[#c5f277]" type="radio" name={`decision-${row.currency}-${row.externalId}`} checked={row.decision === 'expense'} onChange={() => updateRow(row.externalId, row.currency, { decision: 'expense' })} /> Sí, importar</label>
               <label className="flex min-h-8 items-center gap-2 text-xs"><input className="size-4 accent-[#c5f277]" type="radio" name={`decision-${row.currency}-${row.externalId}`} checked={row.decision === 'exclude'} onChange={() => updateRow(row.externalId, row.currency, { decision: 'exclude' })} /> No, excluir</label>
             </fieldset>}
-            {row.decision === 'expense' && <div className="grid items-end gap-3 border-t border-line pt-3 tablet:grid-cols-[minmax(220px,1fr)_auto]"><SelectField label="Categoría" name={`category-${row.currency}-${row.externalId}`} value={row.categoryId} onValueChange={value => updateRow(row.externalId, row.currency, { categoryId: value })} options={expenseCategories.map(category => ({ value: category.id, label: category.name }))} />
+            {row.decision === 'expense' && <div className="grid items-end gap-3 border-t border-line pt-3 tablet:grid-cols-[minmax(220px,1fr)_auto]"><SelectField searchable label="Categoría" name={`category-${row.currency}-${row.externalId}`} value={row.categoryId} onValueChange={value => updateRow(row.externalId, row.currency, { categoryId: value })} options={expenseCategoryOptions} />
               {row.classification === 'expense' && <label className="flex min-h-10 items-center gap-2 pb-1 text-xs"><input className="size-4 accent-[#c5f277]" type="checkbox" checked={row.decision === 'expense'} onChange={event => updateRow(row.externalId, row.currency, { decision: event.target.checked ? 'expense' : 'exclude' })} /> Incluir</label>}
             </div>}
           </>}

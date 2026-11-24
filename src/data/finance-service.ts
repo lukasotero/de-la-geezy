@@ -3,7 +3,7 @@ import { buildInstallmentSchedule } from '@/domain/installments'
 import { toMinorUnits } from '@/domain/money'
 import type {
   CardPayment, CardPurchase, CardStatement, CategoryKind, Currency, Debt, DebtPayment, ExchangeRate, Installment,
-  RecurringOccurrence, RecurringRule, Transaction, TransactionStatus,
+  RecurringOccurrence, RecurringRule, Transaction,
 } from '@/models/entities'
 import { debtSchema, recurringRuleSchema, transactionSchema } from '@/models/schemas'
 import { db, type GeezyDatabase } from './database'
@@ -20,7 +20,7 @@ const now = () => new Date().toISOString()
 
 export type MovementInput = {
   date: string; amount: string | number; currency: Currency; type: 'income' | 'expense' | 'balance-adjustment';
-  status: TransactionStatus; accountId: string; categoryId?: string; description: string; notes?: string; tags?: string[];
+  accountId: string; categoryId?: string; description: string; notes?: string; tags?: string[];
   adjustmentDirection?: 'credit' | 'debit'
 }
 
@@ -76,7 +76,7 @@ export class FinanceService {
     const rateFields = await this.historicalRate(input.currency)
     const transaction = transactionSchema.parse({
       id: uid(), date: input.date, amountMinor: positiveMinor(input.amount), currency: input.currency, type: input.type,
-      status: input.status, accountId: input.accountId, categoryId: input.categoryId, description: input.description.trim(),
+      status: 'confirmed', accountId: input.accountId, categoryId: input.categoryId, description: input.description.trim(),
       notes: input.notes?.trim() || undefined, tags: input.tags ?? [], adjustmentDirection: input.adjustmentDirection, ...rateFields,
       createdAt: stamp, updatedAt: stamp,
     }) as Transaction
@@ -97,7 +97,7 @@ export class FinanceService {
       : current.currency === 'USD' && current.effectiveRate
         ? { exchangeRateId: current.exchangeRateId, effectiveRate: current.effectiveRate }
         : await this.historicalRate('USD')
-    const updated = transactionSchema.parse({ ...current, ...input, ...rateFields, amountMinor: positiveMinor(input.amount), updatedAt: now() }) as Transaction
+    const updated = transactionSchema.parse({ ...current, ...input, status: 'confirmed', ...rateFields, amountMinor: positiveMinor(input.amount), updatedAt: now() }) as Transaction
     await this.database.transactions.put(updated)
     return updated
   }
@@ -363,7 +363,7 @@ export class FinanceService {
     if (action === 'skip') { await this.database.recurringOccurrences.put({ ...occurrence, status: 'skipped', updatedAt: now() }); return }
     const rule = await this.database.recurringRules.get(occurrence.ruleId); if (!rule || !options?.accountId) throw new FinanceError('INVALID_RELATION', 'Falta la regla o la cuenta.')
     const movement = await this.createMovement({ date: options.date ?? occurrence.scheduledDate, amount: options.amount ?? rule.amountMinor / 100,
-      currency: rule.currency, type: rule.kind, status: 'confirmed', accountId: options.accountId, categoryId: rule.categoryId, description: rule.description })
+      currency: rule.currency, type: rule.kind, accountId: options.accountId, categoryId: rule.categoryId, description: rule.description })
     await this.database.recurringOccurrences.put({ ...occurrence, status: 'paid', transactionId: movement.id, actualAmountMinor: movement.amountMinor,
       effectiveDate: movement.date, updatedAt: now() })
   }

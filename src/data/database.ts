@@ -90,6 +90,10 @@ export class GeezyDatabase extends Dexie {
     this.version(7).stores({
       reminderDefinitions: null,
     })
+
+    this.version(8).stores({}).upgrade(async transaction => {
+      await transaction.table('transactions').where('status').equals('pending').modify({ status: 'confirmed' })
+    })
   }
 }
 

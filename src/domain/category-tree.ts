@@ -49,3 +49,13 @@ export function getCategoryDescendantIds(categories: Category[], categoryId: str
   }
   return descendants
 }
+
+export function categorySelectOptions(categories: Category[]) {
+  const ancestors: string[] = []
+  return flattenCategoryTree(categories).map(({ category, depth }) => {
+    ancestors.length = depth
+    const parentPath = ancestors.join(' › ')
+    ancestors.push(category.name)
+    return { value: category.id, label: category.name, depth, parentPath }
+  })
+}

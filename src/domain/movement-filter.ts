@@ -6,7 +6,6 @@ const MOVEMENT_GRID_GAP = 6
 export type MovementFilterState = {
   query: string
   type: string
-  status: string
   account: string
   category: string
   dateFrom: string
@@ -15,7 +14,6 @@ export type MovementFilterState = {
 
 export function hasMovementFilters(filters: MovementFilterState) {
   return filters.type !== 'all'
-    || filters.status !== 'all'
     || filters.account !== 'all'
     || filters.category !== 'all'
     || Boolean(filters.dateFrom)
@@ -35,7 +33,6 @@ export function filterMovements(searchIndex: ReturnType<typeof buildMovementSear
   return searchIndex.filter(({ transaction, searchableText }) => {
     if (normalizedQuery && !searchableText.includes(normalizedQuery)) return false
     if (filters.type !== 'all' && transaction.type !== filters.type) return false
-    if (filters.status !== 'all' && transaction.status !== filters.status) return false
     if (filters.account !== 'all' && transaction.accountId !== filters.account) return false
     if (filters.category !== 'all' && transaction.categoryId !== filters.category) return false
     if (filters.dateFrom && transaction.date < filters.dateFrom) return false

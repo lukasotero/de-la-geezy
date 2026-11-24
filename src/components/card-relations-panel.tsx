@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ResponsiveModal } from '@/components/responsive-modal'
+import { categorySelectOptions } from '@/domain/category-tree'
 import { DatePickerField, FormSelect } from '@/components/form-controls'
 import { IconAction } from '@/components/icon-action'
 
@@ -92,7 +93,7 @@ export function CardRelationsPanel({ accounts, cards, categories, purchases, ins
     <div className="mb-3"><h2 className="text-base font-semibold leading-tight">Compras y resúmenes</h2><p className="mt-0.5 text-xs leading-snug text-muted">La compra es consumo; el pago cancela pasivo y caja.</p></div>
     {cards.length ? <form className="grid gap-2.5 min-[430px]:grid-cols-2" onSubmit={submitPurchase}>
       <FormSelect className="gap-1" label="Tarjeta" name="purchase-card" defaultValue={cards.find(card => card.active)?.id} required options={cards.filter(card => card.active).map(card => ({ value: card.id, label: card.name }))} />
-      <FormSelect className="gap-1" label="Categoría" name="purchase-category" defaultValue="" options={[{ value: '', label: 'Sin categoría' }, ...expenseCategories.map(category => ({ value: category.id, label: category.name }))]} />
+      <FormSelect searchable className="gap-1" label="Categoría" name="purchase-category" defaultValue="" options={[{ value: '', label: 'Sin categoría' }, ...categorySelectOptions(expenseCategories)]} />
       <div className="min-[430px]:col-span-2"><Field label="Comercio o concepto" name="purchase-description" required /></div>
       <div className="grid gap-2.5 min-[430px]:col-span-2 min-[430px]:grid-cols-[1fr_90px_1fr]"><Field label="Importe" name="purchase-amount" type="number" min="0.01" step="0.01" required /><Field label="Cuotas" name="purchase-count" type="number" min="1" defaultValue="1" required /><DatePickerField className="gap-1" label="Fecha" name="purchase-date" defaultValue={todayLocal()} required /></div>
       <Button className="min-[430px]:col-span-2" type="submit"><CreditCardIcon aria-hidden="true" />Registrar compra</Button>
@@ -124,7 +125,7 @@ export function CardRelationsPanel({ accounts, cards, categories, purchases, ins
 
     <ResponsiveModal open={Boolean(editingPurchase)} onOpenChange={isOpen => { if (!isOpen) setEditingPurchase(undefined) }} title="Editar compra" description="Se reemplazará el cronograma y se recalcularán los resúmenes." onCloseAutoFocus={restoreFocus}>
       {editingPurchase ? <form className="grid gap-3" onSubmit={submitEditPurchase}>
-        <FormSelect label="Tarjeta" name="edit-purchase-card" defaultValue={editingPurchase.cardId} required options={cards.filter(card => card.active).map(card => ({ value: card.id, label: card.name }))} /><Field label="Comercio o concepto" name="edit-purchase-description" defaultValue={editingPurchase.description} required /><FormSelect label="Categoría" name="edit-purchase-category" defaultValue={editingPurchase.categoryId ?? ''} options={[{ value: '', label: 'Sin categoría' }, ...expenseCategories.map(category => ({ value: category.id, label: category.name }))]} /><div className="grid gap-3 min-[430px]:grid-cols-3"><Field label="Importe" name="edit-purchase-amount" type="number" min="0.01" step="0.01" defaultValue={editingPurchase.totalMinor / 100} required /><Field label="Cuotas" name="edit-purchase-count" type="number" min="1" defaultValue={editingPurchase.installmentCount} required /><DatePickerField label="Fecha" name="edit-purchase-date" defaultValue={editingPurchase.purchaseDate} required /></div><Button type="submit"><Save aria-hidden="true" />Guardar cambios</Button>
+        <FormSelect label="Tarjeta" name="edit-purchase-card" defaultValue={editingPurchase.cardId} required options={cards.filter(card => card.active).map(card => ({ value: card.id, label: card.name }))} /><Field label="Comercio o concepto" name="edit-purchase-description" defaultValue={editingPurchase.description} required /><FormSelect searchable label="Categoría" name="edit-purchase-category" defaultValue={editingPurchase.categoryId ?? ''} options={[{ value: '', label: 'Sin categoría' }, ...categorySelectOptions(expenseCategories)]} /><div className="grid gap-3 min-[430px]:grid-cols-3"><Field label="Importe" name="edit-purchase-amount" type="number" min="0.01" step="0.01" defaultValue={editingPurchase.totalMinor / 100} required /><Field label="Cuotas" name="edit-purchase-count" type="number" min="1" defaultValue={editingPurchase.installmentCount} required /><DatePickerField label="Fecha" name="edit-purchase-date" defaultValue={editingPurchase.purchaseDate} required /></div><Button type="submit"><Save aria-hidden="true" />Guardar cambios</Button>
       </form> : null}
     </ResponsiveModal>
 

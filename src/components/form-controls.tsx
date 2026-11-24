@@ -8,14 +8,9 @@ import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { CategorySelect, type SearchableOption } from '@/components/category-select'
 
 const EMPTY_OPTION = '__form-control-empty__'
-
-type FormSelectOption = {
-  value: string
-  label: string
-  disabled?: boolean
-}
 
 type FormValueProps = {
   name: string
@@ -55,25 +50,30 @@ function FormValue({ name, value, required, disabled, onInvalid }: FormValueProp
 
 type FormSelectProps = FormValueProps & {
   label: string
-  options: FormSelectOption[]
+  options: SearchableOption[]
+  searchable?: boolean
   placeholder?: string
   className?: string
   triggerClassName?: string
 }
 
-export function FormSelect({ name, label, options, defaultValue, required, disabled, placeholder = 'Elegí una opción', className, triggerClassName }: FormSelectProps) {
+export function FormSelect({ name, label, options, defaultValue, required, disabled, searchable, placeholder = 'Elegí una opción', className, triggerClassName }: FormSelectProps) {
   const { value, setValue, controlRef } = useResettableValue(defaultValue)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const radixValue = value === '' ? EMPTY_OPTION : value
+  const setTrigger = (node: HTMLButtonElement | null) => {
+    triggerRef.current = node
+    controlRef.current = node
+  }
 
   return <div className={cn('relative grid gap-1.5', className)}>
     <Label htmlFor={name}>{label}</Label>
-    <Select value={radixValue ?? ''} onValueChange={next => setValue(next === EMPTY_OPTION ? '' : next)} disabled={disabled}>
-      <SelectTrigger ref={node => { triggerRef.current = node; controlRef.current = node }} id={name} aria-required={required} className={triggerClassName}>
+    {searchable ? <CategorySelect ref={setTrigger} id={name} value={value} options={options} onValueChange={setValue} required={required} disabled={disabled} placeholder={placeholder} className={triggerClassName} /> : <Select value={radixValue ?? ''} onValueChange={next => setValue(next === EMPTY_OPTION ? '' : next)} disabled={disabled}>
+      <SelectTrigger ref={setTrigger} id={name} aria-required={required} className={triggerClassName}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>{options.map(option => <SelectItem key={option.value || EMPTY_OPTION} value={option.value || EMPTY_OPTION} disabled={option.disabled}>{option.label}</SelectItem>)}</SelectContent>
-    </Select>
+    </Select>}
     <FormValue name={name} value={value ?? ''} required={required} disabled={disabled} onInvalid={() => triggerRef.current?.focus()} />
   </div>
 }

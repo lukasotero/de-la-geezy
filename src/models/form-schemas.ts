@@ -23,7 +23,6 @@ export const movementFormSchema = z.object({
   categoryId: z.string(),
   destinationAccountId: z.string().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  status: z.enum(['confirmed', 'pending']),
   adjustmentDirection: z.enum(['credit', 'debit']).optional(),
 }).superRefine((value, context) => {
   if ((value.kind === 'expense' || value.kind === 'income') && !value.categoryId) {

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Archive, ArchiveRestore, ChevronDown, FolderTree, LoaderCircle, Pencil, Plus, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { db } from '@/data'
-import { flattenCategoryTree, getCategoryDescendantIds } from '@/domain/category-tree'
+import { categorySelectOptions, flattenCategoryTree, getCategoryDescendantIds } from '@/domain/category-tree'
 import type { Category } from '@/models'
 import { FormSelect } from './form-controls'
 import { IconAction } from './icon-action'
@@ -88,7 +88,7 @@ type CategoriesViewProps = {
   activeTree: ReturnType<typeof flattenCategoryTree>
   archivedCategories: Category[]
   selectedCategory?: Category
-  parentOptions: { value: string; label: string }[]
+  parentOptions: ReturnType<typeof categorySelectOptions>
   formKey: string
   saving: boolean
   pending: Set<string>
@@ -120,7 +120,7 @@ function CategoriesView({ activeCount, activeTree, archivedCategories, selectedC
         <form key={formKey} className="grid gap-3" onSubmit={event => { event.preventDefault(); void onSave(event.currentTarget) }}>
           <div className="grid gap-1"><Label htmlFor="category-name">Nombre</Label><Input id="category-name" name="category-name" defaultValue={selectedCategory?.name} required /></div>
           {selectedCategory ? <div className="grid gap-1"><span className="text-sm font-medium">Tipo</span><div className="flex min-h-11 items-center rounded-[13px] border border-line bg-bg/35 px-3 text-sm text-muted">{selectedCategory.kind === 'income' ? 'Ingreso' : 'Gasto'}</div></div> : <FormSelect className="gap-1" label="Tipo" name="category-kind" defaultValue="expense" required options={[{ value: 'expense', label: 'Gasto' }, { value: 'income', label: 'Ingreso' }]} />}
-          {!selectedCategory?.archived ? <FormSelect className="gap-1" label="Categoría padre (opcional)" name="category-parent" defaultValue={selectedCategory?.parentId ?? ''} options={[{ value: '', label: 'Sin padre' }, ...parentOptions]} /> : null}
+          {!selectedCategory?.archived ? <FormSelect searchable className="gap-1" label="Categoría padre (opcional)" name="category-parent" defaultValue={selectedCategory?.parentId ?? ''} options={[{ value: '', label: 'Sin padre' }, ...parentOptions]} /> : null}
           <Button type="submit" disabled={saving} aria-busy={saving}>{saving ? <><LoaderCircle className="animate-spin" aria-hidden="true" />Guardando…</> : <><Save aria-hidden="true" />{selectedCategory ? 'Guardar cambios' : 'Guardar categoría'}</>}</Button>
           {selectedCategory ? <CategoryEditorArchiveAction category={selectedCategory} pending={pending.has(`category:archive:${selectedCategory.id}`)} onToggleArchived={() => onToggleArchived(selectedCategory)} /> : null}
         </form>
@@ -140,10 +140,10 @@ export function CategoriesPage({ categories, onRefresh }: Props) {
   const descendants = useMemo(() => selectedCategory ? getCategoryDescendantIds(categories, selectedCategory.id) : new Set<string>(), [categories, selectedCategory])
   const parentOptions = useMemo(() => {
     const kind = selectedCategory?.kind
-    return activeCategoryTree
-      .filter(({ category }) => (!kind || category.kind === kind) && category.id !== selectedCategory?.id && !descendants.has(category.id))
-      .map(({ category, depth }) => ({ value: category.id, label: `${'— '.repeat(depth)}${category.name}` }))
-  }, [activeCategoryTree, descendants, selectedCategory])
+    return categorySelectOptions(activeCategories.filter(category =>
+      (!kind || category.kind === kind) && category.id !== selectedCategory?.id && !descendants.has(category.id),
+    ))
+  }, [activeCategories, descendants, selectedCategory])
 
   const run = async (action: () => Promise<unknown>, success: string, key: string) => {
     if (pendingRef.current.has(key)) return false

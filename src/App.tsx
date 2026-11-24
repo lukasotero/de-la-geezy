@@ -13,6 +13,8 @@ import { toast } from 'sonner'
 import { db, exchangeRateService, financeService, repository } from './data'
 import type { Account, Category, CreditCard as CreditCardModel, ExchangeRate, Transaction } from './models'
 import { movementFormSchema, onboardingFormSchema, type MovementFormValues, type OnboardingFormValues } from './models/form-schemas'
+import { CategorySelect } from './components/category-select'
+import { categorySelectOptions } from './domain/category-tree'
 import { TextField, SelectField } from './components/form-field'
 import { DatePicker, DatePickerField, FormSelect } from './components/form-controls'
 import { ResponsiveModal } from './components/responsive-modal'
@@ -129,18 +131,30 @@ function QuickMovement({ open, accounts, categories, onClose, onClosed, onSaved 
     return () => window.clearTimeout(timer)
   }, [open, onClosed])
   const initialKind: MovementKind = 'expense'
-  const initialCategory = categories.find(category => category.kind === 'expense' && !category.archived)?.id ?? ''
-  const defaultValues = (): MovementFormValues => ({ kind: initialKind, amount: '', description: '', accountId: primaryPesoAccountId(accounts), destinationAccountId: '', categoryId: initialCategory, date: todayLocal(), status: 'confirmed', adjustmentDirection: 'credit' })
+  const categoryOptions = useMemo(() => {
+    const active = categories.filter(category => !category.archived)
+    return {
+      expense: categorySelectOptions(active.filter(category => category.kind === 'expense')),
+      income: categorySelectOptions(active.filter(category => category.kind === 'income')),
+    }
+  }, [categories])
+  const defaultValues = (): MovementFormValues => ({ kind: initialKind, amount: '', description: '', accountId: primaryPesoAccountId(accounts), destinationAccountId: '', categoryId: categoryOptions.expense[0]?.value ?? '', date: todayLocal(), adjustmentDirection: 'credit' })
   const form = useForm<MovementFormValues>({ resolver: zodResolver(movementFormSchema), defaultValues: defaultValues() })
   const kind = useWatch({ control: form.control, name: 'kind' })
-  const filtered = categories.filter(c => c.kind === (kind === 'income' ? 'income' : 'expense') && !c.archived)
+  const changeKind = (value: string) => {
+    const type = value as MovementKind
+    form.setValue('kind', type)
+    const categoryId = type === 'expense' || type === 'income' ? categoryOptions[type][0]?.value : undefined
+    form.setValue('categoryId', categoryId ?? '')
+    form.clearErrors()
+  }
   const submit = form.handleSubmit(async values => {
     try {
       if (values.kind === 'transfer') {
         await financeService.createTransfer({ date: values.date, originAccountId: values.accountId, destinationAccountId: values.destinationAccountId!, amount: values.amount, description: values.description })
       } else {
         const account = accounts.find(a => a.id === values.accountId)!
-        await financeService.createMovement({ date: values.date, amount: values.amount, currency: account.currency, type: values.kind, status: values.status, accountId: values.accountId, categoryId: values.categoryId || undefined, adjustmentDirection: values.adjustmentDirection, description: values.description || (values.kind === 'expense' ? 'Gasto' : values.kind === 'income' ? 'Ingreso' : 'Ajuste de saldo') })
+        await financeService.createMovement({ date: values.date, amount: values.amount, currency: account.currency, type: values.kind, accountId: values.accountId, categoryId: values.categoryId || undefined, adjustmentDirection: values.adjustmentDirection, description: values.description || (values.kind === 'expense' ? 'Gasto' : values.kind === 'income' ? 'Ingreso' : 'Ajuste de saldo') })
       }
       await onSaved()
       form.reset(defaultValues())
@@ -151,15 +165,14 @@ function QuickMovement({ open, accounts, categories, onClose, onClosed, onSaved 
     }
   })
   return <ResponsiveModal open={open} onOpenChange={nextOpen => { if (!nextOpen) onClose() }} onCloseAutoFocus={onClosed} title="Nuevo movimiento" description="Rápido, que la vida sigue."><form noValidate onSubmit={submit}>
-    <Tabs value={kind} onValueChange={value => { const type = value as MovementKind; form.setValue('kind', type); const categoryKind = type === 'income' ? 'income' : 'expense'; form.setValue('categoryId', type === 'transfer' || type === 'balance-adjustment' ? '' : (categories.find(category => category.kind === categoryKind && !category.archived)?.id ?? '')); form.clearErrors() }} className="my-[18px]"><TabsList aria-label="Tipo de movimiento" className="grid !h-auto min-h-[54px] w-full grid-cols-2 gap-1 rounded-[14px] border border-line bg-[#13171a] p-[5px] min-[430px]:grid-cols-4">{(['expense', 'income', 'transfer', 'balance-adjustment'] as MovementKind[]).map(type => <TabsTrigger key={type} value={type} className="min-h-11 rounded-[10px] px-2 text-xs text-muted hover:text-text data-[state=active]:bg-raised data-[state=active]:font-semibold data-[state=active]:text-text data-[state=active]:shadow-[0_1px_5px_rgba(0,0,0,0.28)]">{type === 'expense' ? 'Gasto' : type === 'income' ? 'Ingreso' : type === 'transfer' ? 'Transferencia' : 'Ajuste'}</TabsTrigger>)}</TabsList></Tabs>
+    <Tabs value={kind} onValueChange={changeKind} className="my-[18px]"><TabsList aria-label="Tipo de movimiento" className="grid !h-auto min-h-[54px] w-full grid-cols-2 gap-1 rounded-[14px] border border-line bg-[#13171a] p-[5px] min-[430px]:grid-cols-4">{(['expense', 'income', 'transfer', 'balance-adjustment'] as MovementKind[]).map(type => <TabsTrigger key={type} value={type} className="min-h-11 rounded-[10px] px-2 text-xs text-muted hover:text-text data-[state=active]:bg-raised data-[state=active]:font-semibold data-[state=active]:text-text data-[state=active]:shadow-[0_1px_5px_rgba(0,0,0,0.28)]">{type === 'expense' ? 'Gasto' : type === 'income' ? 'Ingreso' : type === 'transfer' ? 'Transferencia' : 'Ajuste'}</TabsTrigger>)}</TabsList></Tabs>
     <Controller name="amount" control={form.control} render={({ field }) => <AmountField value={field.value} onChange={field.onChange} onBlur={field.onBlur} error={form.formState.errors.amount} />} />
     <div className="mt-[18px] grid gap-[13px] tablet:grid-cols-2">
       <Controller name="accountId" control={form.control} render={({ field }) => <SelectField label={kind === 'transfer' ? 'Cuenta de origen' : 'Cuenta'} name={field.name} value={field.value} onValueChange={field.onChange} onBlur={field.onBlur} error={form.formState.errors.accountId} options={accounts.filter(a => a.active).map(a => ({ value: a.id, label: `${a.name} · ${a.currency}` }))} />} />
-      {kind === 'expense' || kind === 'income' ? <Controller name="categoryId" control={form.control} render={({ field }) => <SelectField label="Categoría" name={field.name} value={field.value} onValueChange={field.onChange} onBlur={field.onBlur} error={form.formState.errors.categoryId} options={filtered.map(c => ({ value: c.id, label: c.name }))} />} /> : null}
+      {kind === 'expense' || kind === 'income' ? <Controller name="categoryId" control={form.control} render={({ field }) => <SelectField searchable label="Categoría" name={field.name} value={field.value} onValueChange={field.onChange} onBlur={field.onBlur} error={form.formState.errors.categoryId} options={categoryOptions[kind]} />} /> : null}
       {kind === 'transfer' ? <Controller name="destinationAccountId" control={form.control} render={({ field }) => <SelectField label="Cuenta de destino" name={field.name} value={field.value ?? ''} onValueChange={field.onChange} onBlur={field.onBlur} error={form.formState.errors.destinationAccountId} options={accounts.filter(a => a.active && a.id !== form.getValues('accountId')).map(a => ({ value: a.id, label: `${a.name} · ${a.currency}` }))} />} /> : null}
       {kind === 'balance-adjustment' ? <Controller name="adjustmentDirection" control={form.control} render={({ field }) => <SelectField label="Dirección" name={field.name} value={field.value ?? 'credit'} onValueChange={field.onChange} onBlur={field.onBlur} error={form.formState.errors.adjustmentDirection} options={[{ value: 'credit', label: 'Sumar saldo' }, { value: 'debit', label: 'Restar saldo' }]} />} /> : null}
       <Controller name="date" control={form.control} render={({ field }) => <DateField value={field.value} onChange={field.onChange} onBlur={field.onBlur} error={form.formState.errors.date} />} />
-      {kind !== 'transfer' ? <Controller name="status" control={form.control} render={({ field }) => <SelectField label="Estado" name={field.name} value={field.value} onValueChange={field.onChange} onBlur={field.onBlur} error={form.formState.errors.status} options={[{ value: 'confirmed', label: 'Confirmado' }, { value: 'pending', label: 'Pendiente' }]} />} /> : null}
       <div className="col-span-full"><TextField label="Descripción o comercio" registration={form.register('description')} error={form.formState.errors.description} placeholder="Ej. Supermercado, sueldo…" /></div>
     </div>
     <div className="mt-[18px] grid grid-cols-[1fr_2fr] gap-[9px]"><Button type="button" variant="outline" onClick={onClose}><X aria-hidden="true" />Cancelar</Button><Button type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? 'Guardando…' : <><Save aria-hidden="true" />Guardar movimiento</>}</Button></div>
@@ -251,17 +264,17 @@ function MovementEditor({ editing, accounts, categories, onClose, onUpdate }: { 
     event.preventDefault(); if (saving) return; setSaving(true)
     try {
       const data = new FormData(event.currentTarget); const accountId = String(data.get('edit-account')); const account = accounts.find(item => item.id === accountId)!
-      await financeService.updateMovement(editing.id, { date: String(data.get('edit-date')), amount: String(data.get('edit-amount')), currency: account.currency, type: editing.type as 'income' | 'expense' | 'balance-adjustment', status: String(data.get('edit-status')) as Transaction['status'], accountId, categoryId: String(data.get('edit-category') || '') || undefined, description: String(data.get('edit-description')), notes: String(data.get('edit-notes') || ''), tags: editing.tags, adjustmentDirection: editing.adjustmentDirection })
+      await financeService.updateMovement(editing.id, { date: String(data.get('edit-date')), amount: String(data.get('edit-amount')), currency: account.currency, type: editing.type as 'income' | 'expense' | 'balance-adjustment', accountId, categoryId: String(data.get('edit-category') || '') || undefined, description: String(data.get('edit-description')), notes: String(data.get('edit-notes') || ''), tags: editing.tags, adjustmentDirection: editing.adjustmentDirection })
       await onUpdate(); toast.success('Movimiento actualizado.'); onClose()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'No pudimos actualizar el movimiento.')
     } finally { setSaving(false) }
   }
-  return <ResponsiveModal open onOpenChange={open => { if (!open && !saving) onClose() }} title="Editar movimiento"><form className="grid gap-3" onSubmit={submit}>{[['Descripción', 'edit-description', editing.description], ['Importe', 'edit-amount', String(editing.amountMinor / 100)], ['Notas', 'edit-notes', editing.notes ?? '']].map(([label, name, defaultValue]) => <label key={name} className="grid gap-1 text-sm">{label}<Input name={name} defaultValue={defaultValue} required={name !== 'edit-notes'} /></label>)}<DatePickerField label="Fecha" name="edit-date" defaultValue={editing.date} required /><FormSelect label="Cuenta" name="edit-account" defaultValue={editing.accountId} required options={accounts.filter(account => account.active || account.id === editing.accountId).map(account => ({ value: account.id, label: account.name }))} /><FormSelect label="Categoría" name="edit-category" defaultValue={editing.categoryId} required options={categories.filter(category => !category.archived && category.kind === editing.type).map(category => ({ value: category.id, label: category.name }))} /><FormSelect label="Estado" name="edit-status" defaultValue={editing.status} required options={[{ value: 'confirmed', label: 'Confirmado' }, { value: 'pending', label: 'Pendiente' }, { value: 'skipped', label: 'Omitido' }]} /><div className="grid grid-cols-2 gap-2"><Button type="button" variant="outline" disabled={saving} onClick={onClose}><X aria-hidden="true" />Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Guardando…' : <><Save aria-hidden="true" />Guardar</>}</Button></div></form></ResponsiveModal>
+  return <ResponsiveModal open onOpenChange={open => { if (!open && !saving) onClose() }} title="Editar movimiento"><form className="grid gap-3" onSubmit={submit}>{[['Descripción', 'edit-description', editing.description], ['Importe', 'edit-amount', String(editing.amountMinor / 100)], ['Notas', 'edit-notes', editing.notes ?? '']].map(([label, name, defaultValue]) => <label key={name} className="grid gap-1 text-sm">{label}<Input name={name} defaultValue={defaultValue} required={name !== 'edit-notes'} /></label>)}<DatePickerField label="Fecha" name="edit-date" defaultValue={editing.date} required /><FormSelect label="Cuenta" name="edit-account" defaultValue={editing.accountId} required options={accounts.filter(account => account.active || account.id === editing.accountId).map(account => ({ value: account.id, label: account.name }))} /><FormSelect searchable label="Categoría" name="edit-category" defaultValue={editing.categoryId} required options={categorySelectOptions(categories.filter(category => !category.archived && category.kind === editing.type))} /><div className="grid grid-cols-2 gap-2"><Button type="button" variant="outline" disabled={saving} onClick={onClose}><X aria-hidden="true" />Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Guardando…' : <><Save aria-hidden="true" />Guardar</>}</Button></div></form></ResponsiveModal>
 }
 
 function MovementFiltersPanel({ active, count, filters, accounts, categories, onFilter, onReset }: { active: boolean; count: number; filters: MovementFilterState; accounts: Account[]; categories: Category[]; onFilter: (key: keyof MovementFilterState, value: string) => void; onReset: () => void }) {
-  return <Card id="movement-filters" className="mb-4 gap-3 rounded-2xl p-4"><div className="flex items-center justify-between gap-3"><strong className="text-sm">Filtrar movimientos</strong>{active ? <Button type="button" variant="ghost" size="sm" onClick={onReset}>Limpiar filtros</Button> : null}</div><div className="grid gap-3 tablet:grid-cols-2 desktop:grid-cols-4"><Select value={filters.type} onValueChange={value => onFilter('type', value)}><SelectTrigger aria-label="Tipo de movimiento"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los tipos</SelectItem><SelectItem value="expense">Gastos</SelectItem><SelectItem value="income">Ingresos</SelectItem><SelectItem value="transfer">Transferencias</SelectItem></SelectContent></Select><Select value={filters.status} onValueChange={value => onFilter('status', value)}><SelectTrigger aria-label="Estado del movimiento"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los estados</SelectItem><SelectItem value="confirmed">Confirmados</SelectItem><SelectItem value="pending">Pendientes</SelectItem></SelectContent></Select><Select value={filters.account} onValueChange={value => onFilter('account', value)}><SelectTrigger aria-label="Cuenta del movimiento"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todas las cuentas</SelectItem>{accounts.map(account => <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>)}</SelectContent></Select><Select value={filters.category} onValueChange={value => onFilter('category', value)}><SelectTrigger aria-label="Categoría del movimiento"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todas las categorías</SelectItem>{categories.filter(category => !category.archived).map(category => <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>)}</SelectContent></Select><div className="grid gap-1.5"><span className="text-xs text-muted">Desde</span><DatePicker value={filters.dateFrom} onValueChange={value => onFilter('dateFrom', value)} ariaLabel="Fecha desde" /></div><div className="grid gap-1.5"><span className="text-xs text-muted">Hasta</span><DatePicker value={filters.dateTo} onValueChange={value => onFilter('dateTo', value)} ariaLabel="Fecha hasta" /></div></div><div className="text-xs text-muted" aria-live="polite">{count} {count === 1 ? 'movimiento encontrado' : 'movimientos encontrados'}</div></Card>
+  return <Card id="movement-filters" className="mb-4 gap-3 rounded-2xl p-4"><div className="flex items-center justify-between gap-3"><strong className="text-sm">Filtrar movimientos</strong>{active ? <Button type="button" variant="ghost" size="sm" onClick={onReset}>Limpiar filtros</Button> : null}</div><div className="grid gap-3 tablet:grid-cols-2 desktop:grid-cols-4"><Select value={filters.type} onValueChange={value => onFilter('type', value)}><SelectTrigger aria-label="Tipo de movimiento"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los tipos</SelectItem><SelectItem value="expense">Gastos</SelectItem><SelectItem value="income">Ingresos</SelectItem><SelectItem value="transfer">Transferencias</SelectItem></SelectContent></Select><Select value={filters.account} onValueChange={value => onFilter('account', value)}><SelectTrigger aria-label="Cuenta del movimiento"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todas las cuentas</SelectItem>{accounts.map(account => <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>)}</SelectContent></Select><CategorySelect ariaLabel="Categoría del movimiento" value={filters.category} onValueChange={value => onFilter('category', value)} options={[{ value: 'all', label: 'Todas las categorías' }, ...categorySelectOptions(categories.filter(category => !category.archived))]} /><div className="grid gap-1.5"><span className="text-xs text-muted">Desde</span><DatePicker value={filters.dateFrom} onValueChange={value => onFilter('dateFrom', value)} ariaLabel="Fecha desde" /></div><div className="grid gap-1.5"><span className="text-xs text-muted">Hasta</span><DatePicker value={filters.dateTo} onValueChange={value => onFilter('dateTo', value)} ariaLabel="Fecha hasta" /></div></div><div className="text-xs text-muted" aria-live="polite">{count} {count === 1 ? 'movimiento encontrado' : 'movimientos encontrados'}</div></Card>
 }
 
 function MovementCollection({ transactions, accountNames, query, activeFilters, containerRef, columns, onEdit, onDelete, onAdd }: { transactions: Transaction[]; accountNames: Map<string, string>; query: string; activeFilters: boolean; containerRef: RefCallback<HTMLDivElement>; columns: number; onEdit: MovementRowProps['onEdit']; onDelete: MovementRowProps['onDelete']; onAdd: () => void }) {
@@ -269,16 +282,16 @@ function MovementCollection({ transactions, accountNames, query, activeFilters, 
   return <m.div ref={containerRef} layout className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} transition={{ layout: motionTransition.layout }}>{transactions.map(transaction => <m.div layout="position" key={transaction.id} transition={{ layout: motionTransition.layout }}><MovementRow transaction={transaction} accountName={accountNames.get(transaction.accountId ?? '') ?? 'Sin cuenta'} onEdit={onEdit} onDelete={onDelete} /></m.div>)}</m.div>
 }
 
-function Movements({ transactions, categories, accounts, importedPeriod, onAdd, onImport, onDelete, onUpdate }: { transactions: Transaction[]; categories: Category[]; accounts: Account[]; importedPeriod: { start: string; end: string; revision: number } | null; onAdd: () => void; onImport: () => void; onDelete: (id: string) => Promise<void>; onUpdate: () => Promise<void> }) {
+function Movements({ transactions, categories, accounts, importedPeriod, onAdd, onImported, onDelete, onUpdate }: { transactions: Transaction[]; categories: Category[]; accounts: Account[]; importedPeriod: { start: string; end: string } | null; onAdd: () => void; onImported: (period: { start: string; end: string }) => Promise<void>; onDelete: (id: string) => Promise<void>; onUpdate: () => Promise<void> }) {
   const [query, setQuery] = useState('')
   const deferredQuery = useDeferredValue(query)
+  const [importing, setImporting] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [typeFilter, setTypeFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
   const [accountFilter, setAccountFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
-  const [dateFromFilter, setDateFromFilter] = useState(() => format(startOfMonth(new Date()), 'yyyy-MM-dd'))
-  const [dateToFilter, setDateToFilter] = useState('')
+  const [dateFromFilter, setDateFromFilter] = useState(() => importedPeriod?.start ?? format(startOfMonth(new Date()), 'yyyy-MM-dd'))
+  const [dateToFilter, setDateToFilter] = useState(() => importedPeriod?.end ?? '')
   const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -287,29 +300,35 @@ function Movements({ transactions, categories, accounts, importedPeriod, onAdd, 
   const cats = useMemo(() => new Map(categories.map(c => [c.id, c.name])), [categories])
   const accs = useMemo(() => new Map(accounts.map(a => [a.id, a.name])), [accounts])
   const searchIndex = useMemo(() => buildMovementSearchIndex(transactions, cats), [transactions, cats])
-  const filters = useMemo<MovementFilterState>(() => ({ query: deferredQuery, type: typeFilter, status: statusFilter, account: accountFilter, category: categoryFilter, dateFrom: dateFromFilter, dateTo: dateToFilter }), [deferredQuery, typeFilter, statusFilter, accountFilter, categoryFilter, dateFromFilter, dateToFilter])
+  const filters = useMemo<MovementFilterState>(() => ({ query: deferredQuery, type: typeFilter, account: accountFilter, category: categoryFilter, dateFrom: dateFromFilter, dateTo: dateToFilter }), [deferredQuery, typeFilter, accountFilter, categoryFilter, dateFromFilter, dateToFilter])
   const hasFilters = hasMovementFilters(filters)
   const filtered = useMemo(() => filterMovements(searchIndex, filters), [searchIndex, filters])
   const pagination = useMemo(() => movementPage(filtered, page, pageSize), [filtered, page, pageSize])
-  const filterSetters = { query: setQuery, type: setTypeFilter, status: setStatusFilter, account: setAccountFilter, category: setCategoryFilter, dateFrom: setDateFromFilter, dateTo: setDateToFilter }
+  const filterSetters = { query: setQuery, type: setTypeFilter, account: setAccountFilter, category: setCategoryFilter, dateFrom: setDateFromFilter, dateTo: setDateToFilter }
   const setFilter = (key: keyof MovementFilterState, value: string) => { filterSetters[key](value); setPage(1) }
-  const resetFilters = () => { setTypeFilter('all'); setStatusFilter('all'); setAccountFilter('all'); setCategoryFilter('all'); setDateFromFilter(''); setDateToFilter(''); setPage(1) }
-  useEffect(() => {
-    if (!importedPeriod) return
-    setQuery(''); setTypeFilter('all'); setStatusFilter('all'); setAccountFilter('all'); setCategoryFilter('all')
-    setDateFromFilter(importedPeriod.start); setDateToFilter(importedPeriod.end); setPage(1)
-  }, [importedPeriod])
+  const resetFilters = () => { setTypeFilter('all'); setAccountFilter('all'); setCategoryFilter('all'); setDateFromFilter(''); setDateToFilter(''); setPage(1) }
+  const applyImportedPeriod: typeof onImported = async period => {
+    await onImported(period)
+    setQuery('')
+    setTypeFilter('all')
+    setAccountFilter('all')
+    setCategoryFilter('all')
+    setDateFromFilter(period.start)
+    setDateToFilter(period.end)
+    setPage(1)
+  }
   useLayoutEffect(() => {
     const oldSize = previousPageSize.current
     if (oldSize === pageSize) return
     setPage(current => pageForAnchor((current - 1) * oldSize, pageSize))
     previousPageSize.current = pageSize
   }, [pageSize])
-  return <><div className="mb-6"><div className="text-[11px] font-bold uppercase tracking-[0.14em] text-accent">HISTORIAL</div><h1 className="mb-[10px] max-w-[680px] text-[clamp(30px,7vw,52px)] leading-[1.02] tracking-[-0.055em]">Movimientos</h1><p className="text-sm text-muted">Cada peso con su historia. Buscá, filtrá y revisá.</p></div><div className="mb-4 flex flex-wrap gap-2"><div className="relative min-w-full flex-1 tablet:min-w-[180px]"><Search size={17} className="absolute left-[13px] top-[14px] z-10 text-muted" /><Input ref={searchInputRef} aria-label="Buscar movimientos" className={`pl-10 ${query ? 'pr-12' : ''}`} value={query} onChange={event => { setQuery(event.target.value); setPage(1) }} placeholder="Buscar comercio o categoría" />{query ? <IconAction type="button" variant="ghost" size="icon-xs" icon={X} label="Limpiar búsqueda" className="absolute right-0.5 top-0.5 size-11 tablet:size-10" onClick={() => { setQuery(''); setPage(1); searchInputRef.current?.focus() }} /> : null}</div><Button type="button" className="min-w-0 flex-1 tablet:flex-none" variant="outline" onClick={onImport}><Upload size={17} /> <span>Importar resumen</span></Button><IconAction variant={hasFilters ? 'secondary' : 'outline'} icon={Filter} label={hasFilters ? 'Filtrar, hay filtros activos' : 'Filtrar'} aria-expanded={filtersOpen} aria-controls="movement-filters" onClick={() => setFiltersOpen(open => !open)} /><Button type="button" className="min-w-0" onClick={onAdd}><Plus size={17} /> <span>Nuevo</span></Button></div>
+  return <><div className="mb-6"><div className="text-[11px] font-bold uppercase tracking-[0.14em] text-accent">HISTORIAL</div><h1 className="mb-[10px] max-w-[680px] text-[clamp(30px,7vw,52px)] leading-[1.02] tracking-[-0.055em]">Movimientos</h1><p className="text-sm text-muted">Cada peso con su historia. Buscá, filtrá y revisá.</p></div><div className="mb-4 flex flex-wrap gap-2"><div className="relative min-w-full flex-1 tablet:min-w-[180px]"><Search size={17} className="absolute left-[13px] top-[14px] z-10 text-muted" /><Input ref={searchInputRef} aria-label="Buscar movimientos" className={`pl-10 ${query ? 'pr-12' : ''}`} value={query} onChange={event => { setQuery(event.target.value); setPage(1) }} placeholder="Buscar comercio o categoría" />{query ? <IconAction type="button" variant="ghost" size="icon-xs" icon={X} label="Limpiar búsqueda" className="absolute right-0.5 top-0.5 size-11 tablet:size-10" onClick={() => { setQuery(''); setPage(1); searchInputRef.current?.focus() }} /> : null}</div><Button type="button" className="min-w-0 flex-1 tablet:flex-none" variant="outline" onClick={() => setImporting(true)}><Upload size={17} /> <span>Importar resumen</span></Button><IconAction variant={hasFilters ? 'secondary' : 'outline'} icon={Filter} label={hasFilters ? 'Filtrar, hay filtros activos' : 'Filtrar'} aria-expanded={filtersOpen} aria-controls="movement-filters" onClick={() => setFiltersOpen(open => !open)} /><Button type="button" className="min-w-0" onClick={onAdd}><Plus size={17} /> <span>Nuevo</span></Button></div>
     <LayoutGroup><AnimatePresence initial={false}>{filtersOpen ? <m.div key="movement-filters" initial={{ opacity: 0, scaleY: 0.96, y: -8 }} animate={{ opacity: 1, scaleY: 1, y: 0 }} exit={{ opacity: 0, scaleY: 0.96, y: -8 }} transition={motionTransition.standard} className="origin-top overflow-hidden"><MovementFiltersPanel active={hasFilters} count={filtered.length} filters={filters} accounts={accounts} categories={categories} onFilter={setFilter} onReset={resetFilters} /></m.div> : null}</AnimatePresence>
     <m.div layout transition={{ layout: motionTransition.layout }}><MovementCollection transactions={pagination.items} accountNames={accs} query={query} activeFilters={hasFilters} containerRef={containerRef} columns={columnCount} onEdit={setEditing} onDelete={onDelete} onAdd={onAdd} /></m.div></LayoutGroup>
     {filtered.length ? <nav aria-label="Paginación de movimientos" className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-muted"><span>Mostrando {pagination.from}–{pagination.to} de {filtered.length}</span><div className="flex items-center gap-2"><Button type="button" variant="outline" size="sm" className="min-h-11" disabled={pagination.page === 1} onClick={() => setPage(Math.max(1, pagination.page - 1))}><ChevronLeft aria-hidden="true" />Anterior</Button><span className="min-w-[78px] text-center" aria-live="polite">Página {pagination.page} de {pagination.totalPages}</span><Button type="button" variant="outline" size="sm" className="min-h-11" disabled={pagination.page === pagination.totalPages} onClick={() => setPage(Math.min(pagination.totalPages, pagination.page + 1))}>Siguiente<ChevronRight aria-hidden="true" /></Button></div></nav> : null}
     {editing ? <MovementEditor editing={editing} accounts={accounts} categories={categories} onClose={() => setEditing(null)} onUpdate={onUpdate} /> : null}
+    {importing ? <MercadoPagoImportModal accounts={accounts} categories={categories} onClose={() => setImporting(false)} onImported={applyImportedPeriod} /> : null}
   </>
 }
 
@@ -345,7 +364,7 @@ function Analysis({ transactions, categories, accounts, cards, month, onMonth }:
 
 export default function App() {
   const { accounts, categories, transactions, cards, rate, ready, refresh, refreshRate } = useFinanceData()
-  const [view, setView] = useState<View>('dashboard'); const [adding, setAdding] = useState(false); const [importing, setImporting] = useState(false); const [importedPeriod, setImportedPeriod] = useState<{ start: string; end: string; revision: number } | null>(null); const [month, setMonth] = useState(() => startOfMonth(new Date()))
+  const [view, setView] = useState<View>('dashboard'); const [adding, setAdding] = useState(false); const [importedPeriod, setImportedPeriod] = useState<{ start: string; end: string } | null>(null); const [month, setMonth] = useState(() => startOfMonth(new Date()))
   const addTrigger = useRef<HTMLElement | null>(null)
   const openAdd = (trigger?: HTMLElement) => { addTrigger.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null); setAdding(true) }
   const closeAdd = () => setAdding(false)
@@ -353,12 +372,12 @@ export default function App() {
   if (!accounts.length) return <Onboarding onDone={refresh} />
   const content = (() => {
     if (view === 'dashboard') return <Dashboard accounts={accounts} transactions={transactions} categories={categories} rate={rate} month={month} onMonth={setMonth} onAdd={openAdd} onNavigate={setView} />
-    if (view === 'movements') return <Movements transactions={transactions} categories={categories} accounts={accounts} importedPeriod={importedPeriod} onAdd={openAdd} onImport={() => setImporting(true)} onDelete={async id => { try { await financeService.deleteMovement(id); await refresh(); toast.success('Movimiento eliminado.') } catch (error) { toast.error(error instanceof Error ? error.message : 'No pudimos eliminar el movimiento.') } }} onUpdate={refresh} />
+    if (view === 'movements') return <Movements transactions={transactions} categories={categories} accounts={accounts} importedPeriod={importedPeriod} onAdd={openAdd} onImported={async period => { await refresh(); setImportedPeriod(period) }} onDelete={async id => { try { await financeService.deleteMovement(id); await refresh(); toast.success('Movimiento eliminado.') } catch (error) { toast.error(error instanceof Error ? error.message : 'No pudimos eliminar el movimiento.') } }} onUpdate={refresh} />
     if (view === 'accounts') return <Accounts accounts={accounts} cards={cards} transactions={transactions} rate={rate} onRefresh={refresh} />
     if (view === 'analysis') return <Analysis transactions={transactions} categories={categories} accounts={accounts} cards={cards} month={month} onMonth={setMonth} />
     if (view === 'categories') return <CategoriesPage categories={categories} onRefresh={refresh} />
     if (view === 'more') return <MoreMenuPage onNavigate={setView} />
     return <FinanceToolsPage accounts={accounts} categories={categories} cards={cards} rate={rate} onRateRefresh={refreshRate} onRefresh={refresh} />
   })()
-  return <AppShell view={view} onNavigate={setView} onAdd={openAdd}>{content}<QuickMovement open={adding} accounts={accounts} categories={categories} onClose={closeAdd} onClosed={() => addTrigger.current?.focus()} onSaved={refresh} />{importing && <MercadoPagoImportModal accounts={accounts} categories={categories} onClose={() => setImporting(false)} onImported={async period => { await refresh(); setImportedPeriod(current => ({ ...period, revision: (current?.revision ?? 0) + 1 })) }} />}</AppShell>
+  return <AppShell view={view} onNavigate={setView} onAdd={openAdd}>{content}<QuickMovement open={adding} accounts={accounts} categories={categories} onClose={closeAdd} onClosed={() => addTrigger.current?.focus()} onSaved={refresh} /></AppShell>
 }

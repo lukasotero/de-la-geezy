@@ -305,6 +305,13 @@ test('nuevo movimiento usa defaults actuales y se limpia después de guardar', a
   const trigger = page.getByRole('button', { name: /(?:Nuevo|Agregar) movimiento/i }).first()
 
   await trigger.click()
+  const category = page.getByRole('combobox', { name: 'Categoría', exact: true })
+  await expect(category).toHaveText('Compras')
+  await page.getByRole('tab', { name: 'Ingreso', exact: true }).click()
+  await expect(category).toHaveText('Honorarios')
+  await page.getByRole('tab', { name: 'Gasto', exact: true }).click()
+  await expect(category).toHaveText('Compras')
+  await chooseSelect(page, 'Categoría', 'Supermercado')
   const expectedDate = await page.evaluate(() => new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date()))
   await expect(page.getByLabel('Fecha')).toHaveText(expectedDate)
   await expect(page.getByRole('combobox', { name: 'Cuenta', exact: true })).toContainText('Cuenta diaria · ARS')
@@ -315,6 +322,7 @@ test('nuevo movimiento usa defaults actuales y se limpia después de guardar', a
   await expect(page.getByRole('heading', { name: 'Nuevo movimiento' })).toBeHidden()
 
   await trigger.click()
+  await expect(category).toHaveText('Compras')
   await expect(page.getByLabel('Importe')).toHaveValue('')
   await expect(page.getByLabel('Descripción o comercio')).toHaveValue('')
   await expect(page.getByLabel('Fecha')).toHaveText(expectedDate)
@@ -395,7 +403,19 @@ test('las categorías permiten crear, reubicar y archivar ramas', async ({ page 
 
   await createCategory('Hogar árbol')
   await createCategory('Servicios árbol', 'Hogar árbol')
-  await createCategory('Internet árbol', '— Servicios árbol')
+  const parentSelect = createForm.getByRole('combobox', { name: 'Categoría padre (opcional)' })
+  await parentSelect.click()
+  const search = page.getByRole('combobox', { name: 'Buscar categorías' })
+  await expect(search).toBeFocused()
+  await search.fill('hogar arbol')
+  const matchingOptions = page.getByRole('listbox').getByRole('option')
+  await expect(matchingOptions).toHaveText(['Hogar árbol', /Servicios árbol.*Hogar árbol/])
+  await expect(matchingOptions.last()).toHaveAttribute('aria-description', 'Subcategoría de Hogar árbol')
+  await search.press('ArrowDown')
+  await search.press('Enter')
+  await expect(parentSelect).toBeFocused()
+  await expect(parentSelect).toContainText('Servicios árbol')
+  await createCategory('Internet árbol')
 
   const rows = page.getByTestId('category-row')
   const tree = await rows.evaluateAll(elements => elements.map(element => ({

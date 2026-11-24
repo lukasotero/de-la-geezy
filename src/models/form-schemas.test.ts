@@ -9,13 +9,13 @@ describe('esquemas de formularios', () => {
   })
 
   it('requiere importe positivo y categoría en un gasto', () => {
-    const result = movementFormSchema.safeParse({ kind: 'expense', amount: '0', description: '', accountId: 'account-1', categoryId: '', date: '2026-11-04', status: 'confirmed' })
+    const result = movementFormSchema.safeParse({ kind: 'expense', amount: '0', description: '', accountId: 'account-1', categoryId: '', date: '2026-11-04' })
     expect(result.success).toBe(false)
     if (!result.success) expect(result.error.flatten().fieldErrors).toMatchObject({ amount: ['El importe debe ser mayor que cero.'], categoryId: ['Elegí una categoría.'] })
   })
 
   it('requiere una cuenta de destino distinta en transferencias', () => {
-    const base = { kind: 'transfer', amount: '100', description: '', accountId: 'account-1', categoryId: '', date: '2026-11-04', status: 'confirmed' }
+    const base = { kind: 'transfer', amount: '100', description: '', accountId: 'account-1', categoryId: '', date: '2026-11-04' }
     expect(movementFormSchema.safeParse(base).success).toBe(false)
     expect(movementFormSchema.safeParse({ ...base, destinationAccountId: 'account-1' }).success).toBe(false)
     expect(movementFormSchema.safeParse({ ...base, destinationAccountId: 'account-2' }).success).toBe(true)

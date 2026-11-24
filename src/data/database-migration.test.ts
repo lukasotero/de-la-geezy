@@ -22,6 +22,7 @@ describe('migraciones Dexie desde v5', () => {
     await legacy.table('cardPurchases').add({ id: 'purchase', cardId: 'card', purchaseDate: '2026-11-04', description: 'Legada', totalMinor: 10000, currency: 'ARS', installmentCount: 1, createdAt: stamp, updatedAt: stamp })
     await legacy.table('cardPayments').add({ id: 'payment', statementId: 'statement', cardId: 'card', accountId: 'account', date: '2026-12-10', amountMinor: 10000, currency: 'ARS', transactionId: 'movement', createdAt: stamp, updatedAt: stamp })
     await legacy.table('transactions').add({ id: 'movement', date: '2026-12-10', amountMinor: 10000, currency: 'ARS', type: 'card-payment', status: 'confirmed', description: 'Pago legado', tags: [], createdAt: stamp, updatedAt: stamp })
+    await legacy.table('transactions').add({ id: 'pending-movement', date: '2026-12-11', amountMinor: 5000, currency: 'ARS', type: 'expense', status: 'pending', accountId: 'account', description: 'Gasto pendiente legado', tags: [], createdAt: stamp, updatedAt: stamp })
     await legacy.table('reminderDefinitions').add({ id: 'legacy-reminder', kind: 'card-due', dueDate: '2026-12-10', dismissed: false })
     legacy.close()
 
@@ -30,8 +31,9 @@ describe('migraciones Dexie desde v5', () => {
     expect(await current.cardPurchases.get('purchase')).toMatchObject({ status: 'active', description: 'Legada' })
     expect(await current.cardPayments.get('payment')).toMatchObject({ status: 'active', transactionId: 'movement' })
     expect(await current.transactions.get('movement')).toMatchObject({ status: 'confirmed' })
+    expect(await current.transactions.get('pending-movement')).toMatchObject({ status: 'confirmed' })
     expect(current.tables.map(table => table.name)).not.toContain('reminderDefinitions')
-    expect(current.verno).toBe(7)
+    expect(current.verno).toBe(8)
     current.close()
   })
 })

@@ -23,7 +23,7 @@ describe('servicio financiero transaccional', () => {
   it('fija la venta oficial al crear movimientos USD y no la revaloriza', async () => {
     const { database, service, stamp } = await setup()
     await database.exchangeRates.add({ id: 'rate-1450', source: 'dolarapi', rateType: 'official', buy: 1450, sell: 1450, fetchedAt: stamp, createdAt: stamp, updatedAt: stamp })
-    const movement = await service.createMovement({ date: '2026-11-04', amount: '600', currency: 'USD', type: 'expense', status: 'confirmed', accountId: 'usd', description: 'Compra USD' })
+    const movement = await service.createMovement({ date: '2026-11-04', amount: '600', currency: 'USD', type: 'expense', accountId: 'usd', description: 'Compra USD' })
     expect(movement).toMatchObject({ exchangeRateId: 'rate-1450', effectiveRate: 1450 })
     await database.exchangeRates.add({ id: 'rate-1500', source: 'dolarapi', rateType: 'official', buy: 1500, sell: 1500, fetchedAt: '2026-11-04T13:00:00.000Z', createdAt: stamp, updatedAt: stamp })
     expect(await service.reconcileUsdRates()).toBe(0)
@@ -32,7 +32,7 @@ describe('servicio financiero transaccional', () => {
 
   it('reconcilia una sola vez los movimientos USD sin cotización', async () => {
     const { database, service, stamp } = await setup()
-    const movement = await service.createMovement({ date: '2026-11-04', amount: '10', currency: 'USD', type: 'income', status: 'confirmed', accountId: 'usd', description: 'Ingreso USD' })
+    const movement = await service.createMovement({ date: '2026-11-04', amount: '10', currency: 'USD', type: 'income', accountId: 'usd', description: 'Ingreso USD' })
     expect(movement.effectiveRate).toBeUndefined()
     const rate = { id: 'rate', source: 'dolarapi' as const, rateType: 'official' as const, buy: 1450, sell: 1450, fetchedAt: stamp, createdAt: stamp, updatedAt: stamp }
     await database.exchangeRates.add(rate)

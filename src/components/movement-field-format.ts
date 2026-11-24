@@ -16,3 +16,9 @@ export function formatArgentineAmount(value: string) {
 export function displayArgentineAmount(value: string) {
   return formatArgentineAmount(value.replace('.', ','))
 }
+
+export function insertArgentineDecimalSeparator(value: string, selectionStart: number | null, selectionEnd: number | null) {
+  const start = selectionStart ?? value.length
+  const end = selectionEnd ?? start
+  return formatArgentineAmount(`${value.slice(0, start)},${value.slice(end)}`)
+}
