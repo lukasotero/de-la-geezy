@@ -16,6 +16,7 @@ test.describe('referencias visuales por pantalla', () => {
   })
 
   test('modal de movimiento', async ({ appPage: page, completeOnboarding }) => {
+    await page.clock.setFixedTime(new Date('2026-11-05T12:00:00-03:00'))
     await completeOnboarding()
     await page.getByRole('button', { name: /(?:Nuevo|Agregar) movimiento/i }).first().click()
     await expect(page.getByRole('heading', { name: 'Nuevo movimiento' })).toBeVisible()
